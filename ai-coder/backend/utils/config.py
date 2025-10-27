@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     GROQ_API_KEY: str
     CEREBRAS_API_KEY: str
     BYTEZ_API_KEY: str
-    AZURE_AI_KEY: str
+    AZURE_AI_KEY: Optional[str] = None
     
     # API Keys - RAG Components
     VOYAGE_API_KEY: Optional[str] = None
