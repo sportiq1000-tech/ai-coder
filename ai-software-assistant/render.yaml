@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: ai-software-assistant
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false
+      - key: CEREBRAS_API_KEY
+        sync: false
+      - key: BYTEZ_API_KEY
+        sync: false
+      - key: AZURE_AI_KEY
+        sync: false
+      - key: APP_ENV
+        value: production
+      - key: DEBUG
+        value: false
+      - key: LOG_LEVEL
+        value: INFO
+      - key: REDIS_URL
+        value: ""
+      - key: CACHE_ENABLED
+        value: true
+      - key: RATE_LIMIT_ENABLED
+        value: true
+    healthCheckPath: /api/health
+    autoDeploy: true
