@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Software Engineering Assistant</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <div class="container">
+            <h1>🤖 AI Software Engineering Assistant</h1>
+            <p class="subtitle">Powered by Multi-LLM Architecture with Redis Caching</p>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <div class="container">
+        <!-- Tab Navigation -->
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('review')">
+                🔍 Code Review
+            </button>
+            <button class="tab-btn" onclick="switchTab('document')">
+                📝 Documentation
+            </button>
+            <button class="tab-btn" onclick="switchTab('bugs')">
+                🐛 Bug Prediction
+            </button>
+            <button class="tab-btn" onclick="switchTab('generate')">
+                ⚡ Code Generation
+            </button>
+        </div>
+
+        <!-- Code Review Tab -->
+        <div id="review-tab" class="tab-content active">
+            <h2>Code Review</h2>
+            <div class="form-group">
+                <label>Programming Language:</label>
+                <select id="review-language">
+                    <option value="python">Python</option>
+                    <option value="javascript">JavaScript</option>
+                    <option value="typescript">TypeScript</option>
+                    <option value="java">Java</option>
+                    <option value="cpp">C++</option>
+                    <option value="csharp">C#</option>
+                    <option value="go">Go</option>
+                    <option value="rust">Rust</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Code to Review:</label>
+                <textarea id="review-code" placeholder="Paste your code here..." rows="15"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Context (Optional):</label>
+                <input type="text" id="review-context" placeholder="Additional context about your code">
+            </div>
+            <div class="checkbox-group">
+                <label>
+                    <input type="checkbox" id="review-style" checked> Check Style
+                </label>
+                <label>
+                    <input type="checkbox" id="review-security" checked> Check Security
+                </label>
+                <label>
+                    <input type="checkbox" id="review-performance" checked> Check Performance
+                </label>
+            </div>
+            <button class="btn-primary" onclick="submitReview()">
+                Analyze Code
+            </button>
+            <div id="review-result" class="result-box"></div>
+        </div>
+
+        <!-- Documentation Tab -->
+        <div id="document-tab" class="tab-content">
+            <h2>Documentation Generator</h2>
+            <div class="form-group">
+                <label>Programming Language:</label>
+                <select id="doc-language">
+                    <option value="python">Python</option>
+                    <option value="javascript">JavaScript</option>
+                    <option value="typescript">TypeScript</option>
+                    <option value="java">Java</option>
+                    <option value="cpp">C++</option>
+                    <option value="csharp">C#</option>
+                    <option value="go">Go</option>
+                    <option value="rust">Rust</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Code to Document:</label>
+                <textarea id="doc-code" placeholder="Paste your code here..." rows="15"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Format:</label>
+                <select id="doc-format">
+                    <option value="markdown">Markdown</option>
+                    <option value="docstring">Docstring</option>
+                    <option value="html">HTML</option>
+                </select>
+            </div>
+            <div class="checkbox-group">
+                <label>
+                    <input type="checkbox" id="doc-examples" checked> Include Examples
+                </label>
+            </div>
+            <button class="btn-primary" onclick="submitDocumentation()">
+                Generate Documentation
+            </button>
+            <div id="doc-result" class="result-box"></div>
+        </div>
+
+        <!-- Bug Prediction Tab -->
+        <div id="bugs-tab" class="tab-content">
+            <h2>Bug Prediction</h2>
+            <div class="form-group">
+                <label>Programming Language:</label>
+                <select id="bugs-language">
+                    <option value="python">Python</option>
+                    <option value="javascript">JavaScript</option>
+                    <option value="typescript">TypeScript</option>
+                    <option value="java">Java</option>
+                    <option value="cpp">C++</option>
+                    <option value="csharp">C#</option>
+                    <option value="go">Go</option>
+                    <option value="rust">Rust</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Code to Analyze:</label>
+                <textarea id="bugs-code" placeholder="Paste your code here..." rows="15"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Context (Optional):</label>
+                <input type="text" id="bugs-context" placeholder="Additional context">
+            </div>
+            <div class="form-group">
+                <label>Severity Threshold:</label>
+                <select id="bugs-severity">
+                    <option value="low">Low</option>
+                    <option value="medium" selected>Medium</option>
+                    <option value="high">High</option>
+                </select>
+            </div>
+            <button class="btn-primary" onclick="submitBugPrediction()">
+                Predict Bugs
+            </button>
+            <div id="bugs-result" class="result-box"></div>
+        </div>
+
+        <!-- Code Generation Tab -->
+        <div id="generate-tab" class="tab-content">
+            <h2>Code Generation</h2>
+            <div class="form-group">
+                <label>Target Language:</label>
+                <select id="gen-language">
+                    <option value="python">Python</option>
+                    <option value="javascript">JavaScript</option>
+                    <option value="typescript">TypeScript</option>
+                    <option value="java">Java</option>
+                    <option value="cpp">C++</option>
+                    <option value="csharp">C#</option>
+                    <option value="go">Go</option>
+                    <option value="rust">Rust</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Description:</label>
+                <textarea id="gen-description" placeholder="Describe what code you want to generate..." rows="8"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Context (Optional):</label>
+                <input type="text" id="gen-context" placeholder="Additional requirements or constraints">
+            </div>
+            <div class="checkbox-group">
+                <label>
+                    <input type="checkbox" id="gen-tests"> Include Unit Tests
+                </label>
+            </div>
+            <button class="btn-primary" onclick="submitCodeGeneration()">
+                Generate Code
+            </button>
+            <div id="gen-result" class="result-box"></div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <p>AI Software Engineering Assistant v0.1.0</p>
+            <p>Built with FastAPI • Redis • Multi-LLM Architecture</p>
+            <a href="/docs" target="_blank">API Documentation</a> |
+            <a href="/api/health" target="_blank">System Health</a> |
+            <a href="/api/admin/metrics" target="_blank">Metrics</a>
+        </div>
+    </footer>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>

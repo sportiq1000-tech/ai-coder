@@ -9,7 +9,8 @@ from utils.logger import logger
 from api.middleware.rate_limiter import RateLimiterMiddleware
 from api.middleware.error_handler import ErrorHandlerMiddleware
 from api.routes import health, review, document, bugs, generate, admin
-
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -17,9 +18,16 @@ async def lifespan(app: FastAPI):
     logger.info(f"Starting {settings.APP_NAME} v{settings.APP_VERSION}")
     logger.info(f"Environment: {settings.APP_ENV}")
     logger.info(f"Debug mode: {settings.DEBUG}")
+    
+    # Initialize cache
+    from utils.cache import get_cache
+    cache = get_cache()
+    
     yield
-    # Shutdown
+    
+    # Shutdown - close cache connections
     logger.info(f"Shutting down {settings.APP_NAME}")
+    await cache.close()
 
 
 # Create FastAPI app
@@ -29,7 +37,16 @@ app = FastAPI(
     description="AI-Driven Software Engineering Assistant API",
     debug=settings.DEBUG,
     lifespan=lifespan
-)
+)  # ← Close FastAPI() here
+
+# Mount static files (AFTER creating app)
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# Serve index.html at root for web interface
+@app.get("/ui")
+async def serve_ui():
+    """Serve the web interface"""
+    return FileResponse("static/index.html")
 
 # Add middleware
 app.add_middleware(ErrorHandlerMiddleware)
