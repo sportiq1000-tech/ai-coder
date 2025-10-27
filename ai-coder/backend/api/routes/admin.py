@@ -30,16 +30,10 @@ async def get_metrics_stats(last_n: int = 100):
 
 @router.get("/cache/stats")
 async def get_cache_stats():
-    """Get cache statistics"""
+    """Get detailed cache statistics"""
     try:
         cache = get_cache()
-        
-        stats = {
-            "type": "redis" if cache.use_redis else "memory",
-            "enabled": cache.enabled,
-            "memory_cache_size": len(cache.memory_cache),
-            "redis_connected": cache.use_redis
-        }
+        stats = await cache.get_stats()
         
         return {
             "status": "success",

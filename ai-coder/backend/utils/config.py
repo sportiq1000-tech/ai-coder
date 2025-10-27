@@ -39,6 +39,13 @@ class Settings(BaseSettings):
     REDIS_URL: Optional[str] = None
     DATABASE_URL: str = "sqlite:///./data/app.db"
     
+# Cache Settings (ADD THESE IF NOT PRESENT)
+    CACHE_ENABLED: bool = True
+    CACHE_TTL_DEFAULT: int = 3600
+    CACHE_TTL_CODE_REVIEW: int = 7200
+    CACHE_TTL_DOCUMENTATION: int = 86400
+    CACHE_TTL_BUG_PREDICTION: int = 3600
+    CACHE_TTL_CODE_GENERATION: int = 1800
     # Rate Limiting
     RATE_LIMIT_ENABLED: bool = True
     RATE_LIMIT_THRESHOLD: float = 0.8  # Switch at 80% of limit

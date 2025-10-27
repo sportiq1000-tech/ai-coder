@@ -9,7 +9,7 @@ from utils.logger import logger
 from utils.exceptions import AIAssistantException, ValidationException
 from utils.validators import CodeValidator
 from utils.parsers import ResponseParser
-from utils.cache import get_cache, Cache
+from utils.cache import get_cache, RedisCache
 from utils.metrics import get_metrics
 from utils.config import settings
 import time
@@ -68,7 +68,7 @@ async def review_code(request: CodeReviewRequest):
         
         # 2. CHECK CACHE
         if settings.CACHE_ENABLED:
-            cache_key = f"review:{Cache.generate_key(sanitized_code, request.language, request.check_style, request.check_security, request.check_performance)}"
+            cache_key = f"review:{RedisCache.generate_key(sanitized_code, request.language, request.check_style, request.check_security, request.check_performance)}"
             cached_result = await cache.get(cache_key)
             
             if cached_result:
