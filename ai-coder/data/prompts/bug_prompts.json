@@ -1,0 +1,7 @@
+{
+  "system_prompt": "You are a software quality expert specialized in identifying potential bugs before they cause problems.",
+  "templates": {
+    "default": "Analyze this {language} code for potential bugs:\n```{language}\n{code}\n```\n\nCheck for:\n- Logic errors\n- Type issues\n- Resource management\n- Error handling\n- Edge cases",
+    "production_ready": "Evaluate if this code is production-ready:\n```{language}\n{code}\n```\n\nCheck: error handling, edge cases, resource cleanup, concurrency issues, testing coverage."
+  }
+}
