@@ -1,3 +1,0 @@
-{"timestamp": "2025-10-25T10:51:10.108944", "endpoint": "/api/review", "task_type": "code_review", "model": "llama-3.3-70b", "provider": "groq", "tokens": 150, "processing_time_ms": 2500, "status": "success", "error": null}
-{"timestamp": "2025-10-27T08:17:44.268731", "endpoint": "/api/review", "task_type": "code_review", "model": "llama-3.3-70b-versatile", "provider": "groq", "tokens": 695, "processing_time_ms": 1614.7816181182861, "status": "success", "error": null}
-{"timestamp": "2025-10-27T08:18:18.004945", "endpoint": "/api/review", "task_type": "code_review", "model": "llama-3.3-70b-versatile", "provider": "cache", "tokens": 0, "processing_time_ms": 8.306264877319336, "status": "success_cached", "error": null}

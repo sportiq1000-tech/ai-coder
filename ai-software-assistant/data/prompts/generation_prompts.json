@@ -1,8 +1,0 @@
-{
-  "system_prompt": "You are an expert software engineer who writes clean, efficient, and well-documented code.",
-  "templates": {
-    "default": "Generate {language} code for:\n{description}\n\nRequirements:\n- Follow best practices\n- Include error handling\n- Add comments\n- Production-ready code",
-    "with_tests": "Generate {language} code with unit tests for:\n{description}\n\nInclude:\n- Main implementation\n- Unit tests\n- Usage examples",
-    "algorithm": "Implement an efficient algorithm in {language} for:\n{description}\n\nOptimize for time and space complexity. Explain the approach."
-  }
-}

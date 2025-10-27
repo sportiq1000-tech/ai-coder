@@ -1,8 +1,0 @@
-{
-  "system_prompt": "You are a technical documentation expert specialized in creating clear, comprehensive code documentation.",
-  "templates": {
-    "default": "Generate {format} documentation for this {language} code:\n```{language}\n{code}\n```\n\nInclude:\n- Overview\n- Parameters\n- Returns\n- Examples\n- Notes",
-    "api_documentation": "Generate API documentation for:\n```{language}\n{code}\n```\n\nInclude: endpoint description, parameters, request/response examples, error codes.",
-    "inline_comments": "Add inline comments explaining this code:\n```{language}\n{code}\n```"
-  }
-}
