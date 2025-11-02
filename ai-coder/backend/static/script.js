@@ -1,6 +1,10 @@
 // API Base URL - automatically detects current host
 const API_BASE = window.location.origin;
 
+// SECURITY FIX - Phase 2D: Public UI API Key
+// This key is intentionally public - for UI users only
+const UI_API_KEY = 'ui_public_2024';
+
 // Tab Switching
 function switchTab(tabName) {
     // Remove active class from all tabs and content
@@ -21,7 +25,18 @@ function showLoading(resultId) {
 
 function showError(resultId, error) {
     const resultBox = document.getElementById(resultId);
-    resultBox.innerHTML = `<div class="error">❌ Error: ${error}</div>`;
+    
+    // Parse error details
+    let errorMessage = error;
+    if (typeof error === 'object' && error.detail) {
+        if (typeof error.detail === 'object') {
+            errorMessage = error.detail.message || error.detail.error || JSON.stringify(error.detail);
+        } else {
+            errorMessage = error.detail;
+        }
+    }
+    
+    resultBox.innerHTML = `<div class="error">❌ Error: ${errorMessage}</div>`;
     resultBox.classList.add('active');
 }
 
@@ -50,7 +65,10 @@ async function submitReview() {
     try {
         const response = await fetch(`${API_BASE}/api/review`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'X-API-Key': UI_API_KEY  // SECURITY FIX: Added UI public key
+            },
             body: JSON.stringify({
                 code,
                 language,
@@ -63,10 +81,10 @@ async function submitReview() {
         
         const data = await response.json();
         
-        if (data.status === 'success') {
+        if (response.ok && data.status === 'success') {
             displayReviewResults(data);
         } else {
-            showError('review-result', data.message || 'Analysis failed');
+            showError('review-result', data.detail || data.message || 'Analysis failed');
         }
     } catch (error) {
         showError('review-result', error.message);
@@ -130,7 +148,10 @@ async function submitDocumentation() {
     try {
         const response = await fetch(`${API_BASE}/api/document`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'X-API-Key': UI_API_KEY  // SECURITY FIX: Added UI public key
+            },
             body: JSON.stringify({
                 code,
                 language,
@@ -141,10 +162,10 @@ async function submitDocumentation() {
         
         const data = await response.json();
         
-        if (data.status === 'success') {
+        if (response.ok && data.status === 'success') {
             displayDocumentationResults(data);
         } else {
-            showError('doc-result', data.message || 'Documentation generation failed');
+            showError('doc-result', data.detail || data.message || 'Documentation generation failed');
         }
     } catch (error) {
         showError('doc-result', error.message);
@@ -181,7 +202,10 @@ async function submitBugPrediction() {
     try {
         const response = await fetch(`${API_BASE}/api/predict-bugs`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'X-API-Key': UI_API_KEY  // SECURITY FIX: Added UI public key
+            },
             body: JSON.stringify({
                 code,
                 language,
@@ -192,10 +216,10 @@ async function submitBugPrediction() {
         
         const data = await response.json();
         
-        if (data.status === 'success') {
+        if (response.ok && data.status === 'success') {
             displayBugResults(data);
         } else {
-            showError('bugs-result', data.message || 'Bug prediction failed');
+            showError('bugs-result', data.detail || data.message || 'Bug prediction failed');
         }
     } catch (error) {
         showError('bugs-result', error.message);
@@ -253,7 +277,10 @@ async function submitCodeGeneration() {
     try {
         const response = await fetch(`${API_BASE}/api/generate`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'X-API-Key': UI_API_KEY  // SECURITY FIX: Added UI public key
+            },
             body: JSON.stringify({
                 description,
                 language,
@@ -264,10 +291,10 @@ async function submitCodeGeneration() {
         
         const data = await response.json();
         
-        if (data.status === 'success') {
+        if (response.ok && data.status === 'success') {
             displayGenerationResults(data);
         } else {
-            showError('gen-result', data.message || 'Code generation failed');
+            showError('gen-result', data.detail || data.message || 'Code generation failed');
         }
     } catch (error) {
         showError('gen-result', error.message);
@@ -304,8 +331,9 @@ window.addEventListener('DOMContentLoaded', async () => {
     try {
         const response = await fetch(`${API_BASE}/api/health`);
         const health = await response.json();
-        console.log('System Health:', health);
+        console.log('✅ System Health:', health);
+        console.log('🔑 Using public UI access (rate limit: 50 requests/min)');
     } catch (error) {
-        console.error('Health check failed:', error);
+        console.error('❌ Health check failed:', error);
     }
 });

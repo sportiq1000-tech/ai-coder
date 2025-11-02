@@ -1,13 +1,13 @@
 """
 Documentation Generation API endpoint with caching and validation
 """
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from schemas.request_schemas import DocumentationRequest
 from schemas.response_schemas import APIResponse, ResponseStatus, ModelInfo
 from core.processors.documentation_generator import DocumentationGenerator
 from utils.logger import logger
 from utils.exceptions import AIAssistantException, ValidationException
-from utils.validators import CodeValidator
+from utils.validators import CodeValidator, sanitizer
 from utils.cache import get_cache, Cache
 from utils.metrics import get_metrics
 from utils.config import settings
@@ -19,7 +19,7 @@ doc_generator = DocumentationGenerator()
 
 
 @router.post("/document", response_model=APIResponse)
-async def generate_documentation(request: DocumentationRequest):
+async def generate_documentation(req: DocumentationRequest, request: Request):
     """
     Generate documentation for code with caching
     
@@ -33,21 +33,34 @@ async def generate_documentation(request: DocumentationRequest):
     cache = get_cache()
     metrics = get_metrics()
     
-    logger.info(f"Documentation request {request_id}: {request.language} -> {request.format}")
+    logger.info(f"Documentation request {request_id}: {req.language} -> {req.format}")
     
     try:
         # VALIDATION
         CodeValidator.validate_code_length(
-            request.code,
+            req.code,
             min_length=settings.MIN_CODE_LENGTH,
             max_length=settings.MAX_CODE_LENGTH
         )
         
-        sanitized_code = CodeValidator.sanitize_code(request.code)
+        sanitized_code = CodeValidator.sanitize_code(req.code)
+        
+        # SECURITY FIX - Phase 2: Validate input
+        is_valid, validation_result = sanitizer.validate_code_input(
+            sanitized_code,
+            req.language.value,
+            check_injection=settings.ENABLE_PROMPT_INJECTION_CHECK,
+            check_secrets=settings.ENABLE_SECRET_DETECTION
+        )
+        if not is_valid:
+            logger.warning(f"Input validation failed for {request_id}: {validation_result}")
+            raise ValidationException(validation_result)
+        
+        sanitized_code = validation_result
         
         # CHECK CACHE (longer TTL for docs)
         if settings.CACHE_ENABLED:
-            cache_key = f"document:{Cache.generate_key(sanitized_code, request.language, request.format, request.include_examples)}"
+            cache_key = f"document:{Cache.generate_key(sanitized_code, req.language, req.format, req.include_examples)}"
             cached_result = await cache.get(cache_key)
             
             if cached_result:
@@ -75,9 +88,9 @@ async def generate_documentation(request: DocumentationRequest):
         # PROCESS REQUEST
         result = await doc_generator.generate(
             code=sanitized_code,
-            language=request.language.value,
-            include_examples=request.include_examples,
-            format_type=request.format
+            language=req.language.value,
+            include_examples=req.include_examples,
+            format_type=req.format
         )
         
         processing_time = (time.time() - start_time) * 1000

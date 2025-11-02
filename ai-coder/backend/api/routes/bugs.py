@@ -1,13 +1,13 @@
 """
 Bug Prediction API endpoint with validation and caching
 """
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from schemas.request_schemas import BugPredictionRequest
 from schemas.response_schemas import APIResponse, ResponseStatus, ModelInfo
 from core.processors.bug_predictor import BugPredictor
 from utils.logger import logger
 from utils.exceptions import AIAssistantException, ValidationException
-from utils.validators import CodeValidator
+from utils.validators import CodeValidator, sanitizer
 from utils.parsers import ResponseParser
 from utils.cache import get_cache, Cache
 from utils.metrics import get_metrics
@@ -20,7 +20,7 @@ bug_predictor = BugPredictor()
 
 
 @router.post("/predict-bugs", response_model=APIResponse)
-async def predict_bugs(request: BugPredictionRequest):
+async def predict_bugs(req: BugPredictionRequest, request: Request):
     """
     Predict potential bugs in code with validation
     
@@ -34,18 +34,29 @@ async def predict_bugs(request: BugPredictionRequest):
     cache = get_cache()
     metrics = get_metrics()
     
-    logger.info(f"Bug prediction request {request_id}: {request.language}")
+    logger.info(f"Bug prediction request {request_id}: {req.language}")
     
     try:
         # VALIDATION
         CodeValidator.validate_code_length(
-            request.code,
+            req.code,
             min_length=settings.MIN_CODE_LENGTH,
             max_length=settings.MAX_CODE_LENGTH
         )
         
-        sanitized_code = CodeValidator.sanitize_code(request.code)
+        sanitized_code = CodeValidator.sanitize_code(req.code)
+         # SECURITY FIX - Phase 2: Validate input for prompt injection
+        is_valid, validation_result = sanitizer.validate_code_input(
+            sanitized_code,
+            req.language.value,
+            check_injection=settings.ENABLE_PROMPT_INJECTION_CHECK,
+            check_secrets=settings.ENABLE_SECRET_DETECTION
+        )
+        if not is_valid:
+            logger.warning(f"Input validation failed for {request_id}: {validation_result}")
+            raise ValidationException(validation_result)
         
+        sanitized_code = validation_result
         # Security pre-check
         if settings.VALIDATE_CODE_SECURITY:
             is_safe, security_issues = CodeValidator.check_security_issues(sanitized_code)
@@ -54,7 +65,7 @@ async def predict_bugs(request: BugPredictionRequest):
         
         # CHECK CACHE
         if settings.CACHE_ENABLED:
-            cache_key = f"bugs:{Cache.generate_key(sanitized_code, request.language, request.severity_threshold)}"
+            cache_key = f"bugs:{Cache.generate_key(sanitized_code, req.language, req.severity_threshold)}"
             cached_result = await cache.get(cache_key)
             
             if cached_result:
@@ -82,9 +93,9 @@ async def predict_bugs(request: BugPredictionRequest):
         # PROCESS REQUEST
         result = await bug_predictor.predict(
             code=sanitized_code,
-            language=request.language.value,
-            context=request.context,
-            severity_threshold=request.severity_threshold
+            language=req.language.value,
+            context=req.context,
+            severity_threshold=req.severity_threshold
         )
         
         # PARSE AND NORMALIZE

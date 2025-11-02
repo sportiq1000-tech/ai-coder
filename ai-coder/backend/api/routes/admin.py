@@ -5,6 +5,9 @@ from fastapi import APIRouter, HTTPException
 from utils.cache import get_cache
 from utils.metrics import get_metrics
 from utils.logger import logger
+from utils.security_monitor import security_monitor
+from typing import Optional
+from datetime import datetime  # Also add this if not present
 
 router = APIRouter()
 
@@ -58,3 +61,57 @@ async def clear_cache():
     except Exception as e:
         logger.error(f"Error clearing cache: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+# Add these new endpoints:
+
+@router.get("/security/events")
+async def get_security_events(
+    limit: int = 100,
+    attack_type: Optional[str] = None,
+    endpoint: Optional[str] = None
+):
+    """
+    Get recent security events (blocked requests)
+    
+    - **limit**: Number of events to return (default: 100)
+    - **attack_type**: Filter by attack type (prompt_injection, secret_extraction)
+    - **endpoint**: Filter by endpoint (/api/review, /api/generate, etc.)
+    """
+    events = security_monitor.get_events_from_file(
+        limit=limit,
+        attack_type=attack_type,
+        endpoint=endpoint
+    )
+    
+    return {
+        "total_events": len(events),
+        "events": events,
+        "filters": {
+            "limit": limit,
+            "attack_type": attack_type,
+            "endpoint": endpoint
+        }
+    }
+
+
+@router.get("/security/stats")
+async def get_security_stats():
+    """Get security statistics and attack patterns"""
+    stats = security_monitor.get_stats()
+    analysis = security_monitor.analyze_attack_patterns()
+    
+    return {
+        "current_session": stats,
+        "historical_analysis": analysis,
+        "timestamp": datetime.utcnow().isoformat()
+    }
+
+
+@router.get("/security/recent")
+async def get_recent_security_events(limit: int = 50):
+    """Get most recent security events from memory (fast)"""
+    events = security_monitor.get_recent_events(limit=limit)
+    
+    return {
+        "count": len(events),
+        "events": events
+    }

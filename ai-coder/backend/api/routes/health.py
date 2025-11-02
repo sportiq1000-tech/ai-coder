@@ -24,10 +24,15 @@ async def health_check(
     # Check model availability
     models_status = await router.health_check()
     
+    # SECURITY FIX - Phase 1: Remove Bytez from health check (disabled)
+    # Remove bytez since it's not currently used
+    if 'bytez' in models_status:
+        del models_status['bytez']
+    
     # Calculate uptime
     uptime = time.time() - startup_time
     
-    # Determine overall status
+    # Determine overall status (only check active providers)
     all_healthy = all(models_status.values())
     status = "healthy" if all_healthy else "degraded"
     

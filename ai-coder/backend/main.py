@@ -1,7 +1,7 @@
 """
 Main FastAPI application
 """
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from utils.config import settings
@@ -9,8 +9,34 @@ from utils.logger import logger
 from api.middleware.rate_limiter import RateLimiterMiddleware
 from api.middleware.error_handler import ErrorHandlerMiddleware
 from api.routes import health, review, document, bugs, generate, admin
+from api.middleware.auth import verify_api_key  # SECURITY FIX: Added auth import
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from fastapi.responses import JSONResponse
+from datetime import datetime
+import json
+from api.middleware.auth import verify_api_key, verify_admin_api_key  # Add verify_admin_api_key
+# SECURITY FIX - Phase 2C: Custom JSON encoder for datetime objects
+class DateTimeEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        return super().default(obj)
+
+# Monkey-patch FastAPI's JSON response to use our encoder
+original_jsonresponse_render = JSONResponse.render
+
+def custom_render(self, content) -> bytes:
+    return json.dumps(
+        content,
+        ensure_ascii=False,
+        allow_nan=False,
+        indent=None,
+        separators=(",", ":"),
+        cls=DateTimeEncoder,  # Use our custom encoder
+    ).encode("utf-8")
+
+JSONResponse.render = custom_render
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -51,21 +77,62 @@ async def serve_ui():
 # Add middleware
 app.add_middleware(ErrorHandlerMiddleware)
 app.add_middleware(RateLimiterMiddleware, requests_per_minute=60)
+# SECURITY FIX - Phase 1: Enhanced CORS configuration
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],  # SECURITY: Restrict methods
+    allow_headers=["Content-Type", "X-API-Key"],  # SECURITY: Restrict headers
 )
 
-# Include routers
+# SECURITY FIX - Phase 1: Include routers with conditional authentication
+# Health endpoint - no auth required (for monitoring)
 app.include_router(health.router, prefix="/api", tags=["Health"])
-app.include_router(review.router, prefix="/api", tags=["Code Review"])
-app.include_router(document.router, prefix="/api", tags=["Documentation"])
-app.include_router(bugs.router, prefix="/api", tags=["Bug Prediction"])
-app.include_router(generate.router, prefix="/api", tags=["Code Generation"])
-app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
+
+if settings.AUTH_ENABLED:
+    logger.info("🔒 Authentication ENABLED for API endpoints")
+    
+    # Regular endpoints
+    app.include_router(
+        review.router, 
+        prefix="/api", 
+        tags=["Code Review"],
+        dependencies=[Depends(verify_api_key)]
+    )
+    app.include_router(
+        document.router, 
+        prefix="/api", 
+        tags=["Documentation"],
+        dependencies=[Depends(verify_api_key)]
+    )
+    app.include_router(
+        bugs.router, 
+        prefix="/api", 
+        tags=["Bug Prediction"],
+        dependencies=[Depends(verify_api_key)]
+    )
+    app.include_router(
+        generate.router, 
+        prefix="/api", 
+        tags=["Code Generation"],
+        dependencies=[Depends(verify_api_key)]
+    )
+    
+    # SECURITY FIX - Phase 2C: Admin endpoints require admin role
+    app.include_router(
+        admin.router, 
+        prefix="/api/admin", 
+        tags=["Admin"],
+        dependencies=[Depends(verify_admin_api_key)]  # Changed to admin check
+    )
+else:
+    logger.warning("⚠️  Authentication DISABLED - do not use in production!")
+    app.include_router(review.router, prefix="/api", tags=["Code Review"])
+    app.include_router(document.router, prefix="/api", tags=["Documentation"])
+    app.include_router(bugs.router, prefix="/api", tags=["Bug Prediction"])
+    app.include_router(generate.router, prefix="/api", tags=["Code Generation"])
+    app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
 
 
 # Root endpoint

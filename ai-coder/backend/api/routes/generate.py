@@ -1,26 +1,27 @@
 """
 Code Generation API endpoint with validation and parsing
 """
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request  # Add Request
 from schemas.request_schemas import CodeGenerationRequest
 from schemas.response_schemas import APIResponse, ResponseStatus, ModelInfo
 from core.processors.code_generator import CodeGenerator
 from utils.logger import logger
 from utils.exceptions import AIAssistantException, ValidationException
-from utils.validators import RequestValidator
+from utils.validators import RequestValidator, sanitizer
 from utils.parsers import ResponseParser
 from utils.cache import get_cache, Cache
 from utils.metrics import get_metrics
 from utils.config import settings
 import time
 import uuid
+from utils.security_monitor import security_monitor
 
 router = APIRouter()
 code_generator = CodeGenerator()
 
 
 @router.post("/generate", response_model=APIResponse)
-async def generate_code(request: CodeGenerationRequest):
+async def generate_code(req: CodeGenerationRequest, request: Request):  # Add request param
     """
     Generate code from natural language description
     
@@ -34,16 +35,52 @@ async def generate_code(request: CodeGenerationRequest):
     cache = get_cache()
     metrics = get_metrics()
     
-    logger.info(f"Code generation request {request_id}: {request.language}")
+    logger.info(f"Code generation request {request_id}: {req.language}")
     
     try:
-        # VALIDATION
-        RequestValidator.validate_description(request.description)
-        RequestValidator.validate_context(request.context)
+               # VALIDATION
+        RequestValidator.validate_description(req.description)  # FIXED: req
+        RequestValidator.validate_context(req.context)  # FIXED: req
         
+        # SECURITY FIX - Phase 2C: Check description for prompt injection
+        is_injection_desc, pattern_desc = sanitizer.check_prompt_injection(req.description)
+        if is_injection_desc:
+            # Log the security block
+            security_monitor.log_blocked_request(
+                request_id=request_id,
+                endpoint="/api/generate",
+                client_ip=request.client.host,
+                api_key_user="authenticated",
+                input_data=req.description,
+                block_reason="Suspicious input detected in description",
+                matched_pattern=pattern_desc,
+                attack_type="prompt_injection"
+            )
+            logger.warning(f"Prompt injection detected in description for {request_id}")
+            raise ValidationException("Suspicious input detected in description")
+        
+        # Check context if provided
+        if req.context:
+            is_injection_ctx, pattern_ctx = sanitizer.check_prompt_injection(req.context)
+            if is_injection_ctx:
+                # Log the security block
+                security_monitor.log_blocked_request(
+                    request_id=request_id,
+                    endpoint="/api/generate",
+                    client_ip=request.client.host,
+                    api_key_user="authenticated",
+                    input_data=req.context,
+                    block_reason="Suspicious input detected in context",
+                    matched_pattern=pattern_ctx,
+                    attack_type="prompt_injection"
+                )
+                logger.warning(f"Prompt injection detected in context for {request_id}")
+                raise ValidationException("Suspicious input detected in context")
+        
+        # CHECK CACHE (rest of your code continues...)
         # CHECK CACHE
         if settings.CACHE_ENABLED:
-            cache_key = f"generate:{Cache.generate_key(request.description, request.language, request.include_tests, request.context)}"
+            cache_key = f"generate:{Cache.generate_key(req.description, req.language, req.include_tests, req.context)}"
             cached_result = await cache.get(cache_key)
             
             if cached_result:
@@ -70,17 +107,17 @@ async def generate_code(request: CodeGenerationRequest):
         
         # PROCESS REQUEST
         result = await code_generator.generate(
-            description=request.description,
-            language=request.language.value,
-            context=request.context,
-            include_tests=request.include_tests
+            description=req.description,
+            language=req.language.value,
+            context=req.context,
+            include_tests=req.include_tests
         )
         
         # PARSE AND NORMALIZE
         model_info_data = result.pop("model_info", {})
         normalized_result = ResponseParser.normalize_code_generation(
             result.get("raw_response", str(result)),
-            request.language.value
+            req.language.value
         )
         
         # Merge results

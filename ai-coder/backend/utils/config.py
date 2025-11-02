@@ -82,6 +82,15 @@ class Settings(BaseSettings):
     MAX_CODE_LENGTH: int = 50000
     MIN_CODE_LENGTH: int = 1
     
+     # SECURITY FIX - Phase 1: Authentication Settings
+    API_KEYS: Optional[str] = None  # Format: key1:user1:limit1,key2:user2:limit2
+    AUTH_ENABLED: bool = True  # Set to False to disable auth (dev only!)
+    
+    # SECURITY FIX - Phase 1: Security Settings
+    ENABLE_PROMPT_INJECTION_CHECK: bool = True
+    ENABLE_SECRET_DETECTION: bool = True
+    MAX_REQUEST_SIZE: int = 10485760  # 10MB
+    
     class Config:
         env_file = ".env"
         env_file_encoding = 'utf-8'

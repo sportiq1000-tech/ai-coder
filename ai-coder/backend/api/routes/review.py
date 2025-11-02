@@ -1,26 +1,27 @@
 """
 Code Review API endpoint with caching, validation, and metrics
 """
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from schemas.request_schemas import CodeReviewRequest
 from schemas.response_schemas import APIResponse, ResponseStatus, ModelInfo
 from core.processors.code_analyzer import CodeAnalyzer
 from utils.logger import logger
 from utils.exceptions import AIAssistantException, ValidationException
-from utils.validators import CodeValidator
+from utils.validators import CodeValidator, sanitizer
 from utils.parsers import ResponseParser
 from utils.cache import get_cache, RedisCache
 from utils.metrics import get_metrics
 from utils.config import settings
 import time
 import uuid
+from utils.security_monitor import security_monitor
 
 router = APIRouter()
 analyzer = CodeAnalyzer()
 
 
 @router.post("/review", response_model=APIResponse)
-async def review_code(request: CodeReviewRequest):
+async def review_code(req: CodeReviewRequest, request: Request):  # Add request parameter
     """
     Review code and provide suggestions with caching and validation
     
@@ -36,7 +37,7 @@ async def review_code(request: CodeReviewRequest):
     cache = get_cache()
     metrics = get_metrics()
     
-    logger.info(f"Code review request {request_id}: {request.language}")
+    logger.info(f"Code review request {request_id}: {req.language}")
     
     try:
         # 1. VALIDATION
@@ -44,20 +45,55 @@ async def review_code(request: CodeReviewRequest):
         
         # Validate code length
         CodeValidator.validate_code_length(
-            request.code,
+            req.code,
             min_length=settings.MIN_CODE_LENGTH,
             max_length=settings.MAX_CODE_LENGTH
         )
         
         # Sanitize code
-        sanitized_code = CodeValidator.sanitize_code(request.code)
+        sanitized_code = CodeValidator.sanitize_code(req.code)
         
+        
+                # SECURITY FIX - Phase 2: Check for prompt injection and secret extraction
+        is_valid, validation_result = sanitizer.validate_code_input(
+            sanitized_code,
+            req.language.value,
+            check_injection=settings.ENABLE_PROMPT_INJECTION_CHECK,
+            check_secrets=settings.ENABLE_SECRET_DETECTION
+        )
+        if not is_valid:
+            # SECURITY FIX - Phase 2C: Parse validation result for monitoring
+            # Format: "attack_type|||pattern|||message"
+            parts = validation_result.split("|||")
+            if len(parts) == 3:
+                attack_type, matched_pattern, error_msg = parts
+            else:
+                attack_type, matched_pattern, error_msg = "validation_error", None, validation_result
+            
+            # Log the security block
+            security_monitor.log_blocked_request(
+                request_id=request_id,
+                endpoint="/api/review",
+                client_ip=request.client.host if hasattr(request, 'client') else "unknown",
+                api_key_user="authenticated",  # We know they're auth'd if they got here
+                input_data=sanitized_code,
+                block_reason=error_msg,
+                matched_pattern=matched_pattern,
+                attack_type=attack_type
+            )
+            
+            logger.warning(f"Input validation failed for {request_id}: {error_msg}")
+            raise ValidationException(error_msg)
+        
+        # Use the sanitized result from validator
+        sanitized_code = validation_result
+     
         # Auto-detect language if needed
         if settings.AUTO_DETECT_LANGUAGE:
             detected = CodeValidator.detect_language(sanitized_code)
-            if detected and detected != request.language.value:
+            if detected and detected != req.language.value:
                 logger.warning(
-                    f"Language mismatch: declared={request.language}, detected={detected}"
+                    f"Language mismatch: declared={req.language}, detected={detected}"
                 )
         
         # Security check
@@ -68,7 +104,7 @@ async def review_code(request: CodeReviewRequest):
         
         # 2. CHECK CACHE
         if settings.CACHE_ENABLED:
-            cache_key = f"review:{RedisCache.generate_key(sanitized_code, request.language, request.check_style, request.check_security, request.check_performance)}"
+            cache_key = f"review:{RedisCache.generate_key(sanitized_code, req.language, req.check_style, req.check_security, req.check_performance)}"
             cached_result = await cache.get(cache_key)
             
             if cached_result:
@@ -97,11 +133,11 @@ async def review_code(request: CodeReviewRequest):
         # 3. PROCESS REQUEST
         result = await analyzer.analyze(
             code=sanitized_code,
-            language=request.language.value,
-            context=request.context,
-            check_style=request.check_style,
-            check_security=request.check_security,
-            check_performance=request.check_performance
+            language=req.language.value,
+            context=req.context,
+            check_style=req.check_style,
+            check_security=req.check_security,
+            check_performance=req.check_performance
         )
         
         # 4. PARSE AND NORMALIZE RESPONSE
