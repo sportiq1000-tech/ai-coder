@@ -1,0 +1,15 @@
+2025-11-02 16:22:57 - ai-assistant - INFO - Enhanced rate limiter initialized
+2025-11-02 16:22:57 - ai-assistant - INFO - SecurityMonitor initialized: logs/security_events.jsonl
+2025-11-02 16:22:57 - ai-assistant - INFO - GroqClient initialized
+2025-11-02 16:22:57 - ai-assistant - INFO - CerebrasClient initialized
+2025-11-02 16:22:57 - ai-assistant - INFO - BytezClient initialized
+2025-11-02 16:22:57 - ai-assistant - INFO - AzureClient initialized
+2025-11-02 16:22:57 - ai-assistant - INFO - ModelRouter initialized with all clients
+2025-11-02 16:22:57 - ai-assistant - INFO - CodeAnalyzer initialized
+2025-11-02 16:22:57 - ai-assistant - INFO - DocumentationGenerator initialized
+2025-11-02 16:22:57 - ai-assistant - INFO - BugPredictor initialized
+2025-11-02 16:22:57 - ai-assistant - INFO - CodeGenerator initialized
+2025-11-02 16:22:57 - ai-assistant - INFO - Loaded API key for user: developer
+2025-11-02 16:22:57 - ai-assistant - INFO - Loaded API key for user: admin
+2025-11-02 16:22:57 - ai-assistant - INFO - Loaded API key for user: ui_public
+2025-11-02 16:22:57 - ai-assistant - INFO - APIKeyManager initialized with 3 keys
