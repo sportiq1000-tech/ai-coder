@@ -11,7 +11,7 @@ from core.models.groq_client import GroqClient
 from core.models.cerebras_client import CerebrasClient
 from core.models.bytez_client import BytezClient
 from core.models.azure_client import AzureClient
-
+from pydantic import BaseModel, ConfigDict
 
 class TaskType(str, Enum):
     CODE_REVIEW = "code_review"

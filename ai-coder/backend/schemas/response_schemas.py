@@ -1,7 +1,7 @@
 """
 Response schemas for API endpoints
 """
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, Any, Dict
 from datetime import datetime
 from enum import Enum
@@ -27,13 +27,16 @@ class ModelInfo(BaseModel):
     provider: str
     tokens_used: Optional[int] = None
     processing_time_ms: Optional[float] = None
-
+    model_config = ConfigDict(
+        protected_namespaces=()  # ← ADD THIS LINE
+    )
 
 class APIResponse(BaseResponse):
     """Standard API response"""
     data: Optional[Any] = None
     model_info: Optional[ModelInfo] = None
     request_id: Optional[str] = None
+    model_config = ConfigDict(protected_namespaces=())  # ← FIX
 
 
 class ErrorResponse(BaseResponse):
@@ -50,3 +53,4 @@ class HealthResponse(BaseModel):
     uptime_seconds: float
     models_available: Dict[str, bool]
     timestamp: datetime = Field(default_factory=datetime.utcnow)
+    model_config = ConfigDict(protected_namespaces=())  # ← ADD IF NEEDED

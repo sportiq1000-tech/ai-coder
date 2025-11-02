@@ -1,7 +1,7 @@
 """
 Model-specific schemas and configurations
 """
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional, Dict, Any
 from enum import Enum
 
@@ -39,7 +39,7 @@ class ModelConfig(BaseModel):
     context_window: int = 8192
     rpm_limit: Optional[int] = None
     rpd_limit: Optional[int] = None
-
+    model_config = ConfigDict(protected_namespaces=())  # ← ADD
 
 class ModelRequest(BaseModel):
     """Request to a model"""
@@ -49,6 +49,7 @@ class ModelRequest(BaseModel):
     max_tokens: int = 4096
     top_p: float = 0.9
     stream: bool = False
+    model_config = ConfigDict(protected_namespaces=())  # ← ADD
 
 
 class ModelResponse(BaseModel):
@@ -59,3 +60,4 @@ class ModelResponse(BaseModel):
     tokens_used: Optional[int] = None
     finish_reason: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
+    model_config = ConfigDict(protected_namespaces=())  # ← ADD

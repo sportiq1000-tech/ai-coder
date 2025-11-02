@@ -53,3 +53,14 @@ ai-software-assistant/
 
 ## License
 MIT License
+# AI Software Engineering Assistant
+
+![Tests](https://github.com/sportiq1000-tech/ai-coder/workflows/Test%20Suite/badge.svg)
+[![Coverage](https://codecov.io/gh/sportiq1000-tech/ai-coder/branch/main/graph/badge.svg)](https://codecov.io/gh/sportiq1000-tech/ai-coder)
+
+Production-ready AI assistant with automated testing and CI/CD.
+
+## Status
+- ✅ Tests: Passing
+- ✅ Coverage: 59%
+- ✅ Security: Hardened

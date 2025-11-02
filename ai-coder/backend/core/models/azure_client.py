@@ -7,6 +7,7 @@ from utils.config import settings
 from utils.logger import logger
 from utils.exceptions import ModelException
 from schemas.model_schemas import ModelResponse, ModelProvider
+from pydantic import BaseModel, ConfigDict
 class AzureClient:
     """Client for Azure AI (Phi models)"""
     
