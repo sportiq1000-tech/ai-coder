@@ -1,0 +1,33 @@
+name: Deploy to Render
+
+on:
+  workflow_run:
+    workflows: ["Test Suite"]
+    types:
+      - completed
+    branches: [main]
+
+jobs:
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    
+    steps:
+      - name: Trigger Render deployment
+        # yamllint disable-line rule:line-length
+        run: |
+          curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK }}
+      
+      - name: Wait for deployment
+        run: sleep 120
+      
+      - name: Verify deployment health
+        run: |
+          response=$(curl -s -o /dev/null -w "%{http_code}" https://ai-coder-g6k6.onrender.com/api/health)
+          if [ "$response" = "200" ]; then
+            echo "✅ Deployment successful and healthy"
+          else
+            echo "❌ Deployment health check failed (HTTP $response)"
+            exit 1
+          fi
