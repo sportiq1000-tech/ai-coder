@@ -1,5 +1,6 @@
 // API Base URL - automatically detects current host
 const API_BASE = window.location.origin;
+const API_VERSION = '/api/v1';  // VERSIONING: API v1 prefix
 
 // SECURITY FIX - Phase 2D: Public UI API Key
 // This key is intentionally public - for UI users only
@@ -63,7 +64,7 @@ async function submitReview() {
     showLoading('review-result');
     
     try {
-        const response = await fetch(`${API_BASE}/api/review`, {
+        const response = await fetch(`${API_BASE}${API_VERSION}/review`, {
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json',
@@ -146,7 +147,7 @@ async function submitDocumentation() {
     showLoading('doc-result');
     
     try {
-        const response = await fetch(`${API_BASE}/api/document`, {
+        const response = await fetch(`${API_BASE}${API_VERSION}/document`, {
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json',
@@ -200,7 +201,7 @@ async function submitBugPrediction() {
     showLoading('bugs-result');
     
     try {
-        const response = await fetch(`${API_BASE}/api/predict-bugs`, {
+        const response = await fetch(`${API_BASE}${API_VERSION}/predict-bugs`, {
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json',
@@ -275,7 +276,7 @@ async function submitCodeGeneration() {
     showLoading('gen-result');
     
     try {
-        const response = await fetch(`${API_BASE}/api/generate`, {
+        const response = await fetch(`${API_BASE}${API_VERSION}/generate`, {
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json',
@@ -329,10 +330,11 @@ function escapeHtml(text) {
 // Load system info on page load
 window.addEventListener('DOMContentLoaded', async () => {
     try {
-        const response = await fetch(`${API_BASE}/api/health`);
+        const response = await fetch(`${API_BASE}${API_VERSION}/health`);
         const health = await response.json();
         console.log('✅ System Health:', health);
         console.log('🔑 Using public UI access (rate limit: 50 requests/min)');
+        console.log('📌 API Version: v1');
     } catch (error) {
         console.error('❌ Health check failed:', error);
     }

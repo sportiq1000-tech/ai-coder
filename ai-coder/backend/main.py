@@ -1,7 +1,7 @@
 """
 Main FastAPI application
 """
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from utils.config import settings
@@ -9,13 +9,14 @@ from utils.logger import logger
 from api.middleware.rate_limiter import RateLimiterMiddleware
 from api.middleware.error_handler import ErrorHandlerMiddleware
 from api.routes import health, review, document, bugs, generate, admin
-from api.middleware.auth import verify_api_key  # SECURITY FIX: Added auth import
+from api.middleware.auth import verify_api_key, verify_admin_api_key
+from api.middleware.versioning import APIVersionMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.responses import JSONResponse
 from datetime import datetime
 import json
-from api.middleware.auth import verify_api_key, verify_admin_api_key  # Add verify_admin_api_key
+
 # SECURITY FIX - Phase 2C: Custom JSON encoder for datetime objects
 class DateTimeEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -75,6 +76,7 @@ async def serve_ui():
     return FileResponse("static/index.html")
 
 # Add middleware
+app.add_middleware(APIVersionMiddleware)  # VERSIONING: Add version middleware first
 app.add_middleware(ErrorHandlerMiddleware)
 app.add_middleware(RateLimiterMiddleware, requests_per_minute=60)
 # SECURITY FIX - Phase 1: Enhanced CORS configuration
@@ -86,53 +88,63 @@ app.add_middleware(
     allow_headers=["Content-Type", "X-API-Key"],  # SECURITY: Restrict headers
 )
 
+# VERSIONING: Create v1 API router
+v1_router = APIRouter(prefix="/api/v1")
+
 # SECURITY FIX - Phase 1: Include routers with conditional authentication
 # Health endpoint - no auth required (for monitoring)
-app.include_router(health.router, prefix="/api", tags=["Health"])
+v1_router.include_router(health.router, tags=["Health"])
 
 if settings.AUTH_ENABLED:
     logger.info("🔒 Authentication ENABLED for API endpoints")
     
     # Regular endpoints
-    app.include_router(
-        review.router, 
-        prefix="/api", 
+    v1_router.include_router(
+        review.router,
         tags=["Code Review"],
         dependencies=[Depends(verify_api_key)]
     )
-    app.include_router(
-        document.router, 
-        prefix="/api", 
+    v1_router.include_router(
+        document.router,
         tags=["Documentation"],
         dependencies=[Depends(verify_api_key)]
     )
-    app.include_router(
-        bugs.router, 
-        prefix="/api", 
+    v1_router.include_router(
+        bugs.router,
         tags=["Bug Prediction"],
         dependencies=[Depends(verify_api_key)]
     )
-    app.include_router(
-        generate.router, 
-        prefix="/api", 
+    v1_router.include_router(
+        generate.router,
         tags=["Code Generation"],
         dependencies=[Depends(verify_api_key)]
     )
     
     # SECURITY FIX - Phase 2C: Admin endpoints require admin role
-    app.include_router(
-        admin.router, 
-        prefix="/api/admin", 
+    admin_router = APIRouter(prefix="/admin")
+    admin_router.include_router(
+        admin.router,
         tags=["Admin"],
-        dependencies=[Depends(verify_admin_api_key)]  # Changed to admin check
+        dependencies=[Depends(verify_admin_api_key)]
     )
+    v1_router.include_router(admin_router)
+    
 else:
     logger.warning("⚠️  Authentication DISABLED - do not use in production!")
-    app.include_router(review.router, prefix="/api", tags=["Code Review"])
-    app.include_router(document.router, prefix="/api", tags=["Documentation"])
-    app.include_router(bugs.router, prefix="/api", tags=["Bug Prediction"])
-    app.include_router(generate.router, prefix="/api", tags=["Code Generation"])
-    app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
+    v1_router.include_router(review.router, tags=["Code Review"])
+    v1_router.include_router(document.router, tags=["Documentation"])
+    v1_router.include_router(bugs.router, tags=["Bug Prediction"])
+    v1_router.include_router(generate.router, tags=["Code Generation"])
+    
+    admin_router = APIRouter(prefix="/admin")
+    admin_router.include_router(admin.router, tags=["Admin"])
+    v1_router.include_router(admin_router)
+
+# VERSIONING: Mount v1 router to app
+app.include_router(v1_router)
+
+logger.info("✅ API v1 routes registered at /api/v1/")
+logger.info("⚠️  Legacy /api/ routes supported (deprecated)")
 
 
 # Root endpoint
@@ -150,9 +162,9 @@ async def root():
             "Code Generation"
         ],
         "admin": {
-            "metrics": "/api/admin/metrics",
-            "cache_stats": "/api/admin/cache/stats",
-            "cache_clear": "/api/admin/cache/clear"
+            "metrics": "/api/v1/admin/metrics",
+            "cache_stats": "/api/v1/admin/cache/stats",
+            "cache_clear": "/api/v1/admin/cache/clear"
         }
     }
 
