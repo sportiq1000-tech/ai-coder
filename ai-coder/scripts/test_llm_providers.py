@@ -1,6 +1,11 @@
 """
 Test what models are currently available
 """
+import sys
+from pathlib import Path
+backend_dir = Path(__file__).parent.parent / "backend"
+sys.path.insert(0, str(backend_dir))
+
 import asyncio
 import httpx
 from utils.config import settings

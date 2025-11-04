@@ -1,11 +1,20 @@
 """
 Test polishing features
 """
+import sys
+from pathlib import Path
+
+# Add backend directory to path
+backend_dir = Path(__file__).parent.parent / "backend"
+sys.path.insert(0, str(backend_dir))
+
 import asyncio
 from utils.cache import get_cache
 from utils.validators import CodeValidator, RequestValidator
 from utils.parsers import ResponseParser
 from utils.metrics import get_metrics
+
+# ... rest of the file unchanged
 
 async def test_cache():
     print("\n=== Testing Cache ===")

@@ -1,11 +1,18 @@
 """
 Test Redis cache functionality
 """
+import sys
+from pathlib import Path
+
+# Add backend directory to path
+backend_dir = Path(__file__).parent.parent / "backend"
+sys.path.insert(0, str(backend_dir))
+
 import asyncio
 from utils.cache import get_cache
 from utils.logger import logger
 
-
+# ... rest of the file unchanged
 async def test_redis_cache():
     """Test Redis cache operations"""
     print("\n" + "="*60)
