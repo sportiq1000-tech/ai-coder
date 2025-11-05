@@ -39,7 +39,6 @@ class Settings(BaseSettings):
     REDIS_URL: Optional[str] = None
     DATABASE_URL: str = "sqlite:///./data/app.db"
     
-
     # Rate Limiting
     RATE_LIMIT_ENABLED: bool = True
     RATE_LIMIT_THRESHOLD: float = 0.8  # Switch at 80% of limit
@@ -76,7 +75,7 @@ class Settings(BaseSettings):
     MAX_CODE_LENGTH: int = 50000
     MIN_CODE_LENGTH: int = 1
     
-     # SECURITY FIX - Phase 1: Authentication Settings
+    # SECURITY FIX - Phase 1: Authentication Settings
     API_KEYS: Optional[str] = None  # Format: key1:user1:limit1,key2:user2:limit2
     AUTH_ENABLED: bool = True  # Set to False to disable auth (dev only!)
     
@@ -84,6 +83,44 @@ class Settings(BaseSettings):
     ENABLE_PROMPT_INJECTION_CHECK: bool = True
     ENABLE_SECRET_DETECTION: bool = True
     MAX_REQUEST_SIZE: int = 10485760  # 10MB
+    
+    # ===== RAG CONFIGURATION - Phase 1 =====
+    
+    # RAG - Vector Store (Qdrant) - Additional Settings
+    QDRANT_TIMEOUT: int = 30
+    
+    # RAG - Graph Store (Neo4j)
+    NEO4J_URI: Optional[str] = None
+    NEO4J_USER: str = "neo4j"
+    NEO4J_PASSWORD: Optional[str] = None
+    NEO4J_DATABASE: str = "neo4j"
+    NEO4J_MAX_CONNECTION_LIFETIME: int = 3600
+    NEO4J_MAX_CONNECTION_POOL_SIZE: int = 50
+    
+    # RAG - Embeddings (OpenAI)
+    OPENAI_API_KEY: Optional[str] = None
+    EMBEDDING_MODEL: str = "text-embedding-ada-002"
+    EMBEDDING_DIMENSION: int = 1536
+    EMBEDDING_BATCH_SIZE: int = 100
+    
+    # RAG - Chunking Configuration
+    CHUNK_SIZE: int = 1000
+    CHUNK_OVERLAP: int = 200
+    MIN_CHUNK_SIZE: int = 50
+    
+    # RAG - Processing Configuration
+    MAX_FILE_SIZE_MB: int = 10
+    SUPPORTED_LANGUAGES: str = "python,javascript,typescript,java,cpp,csharp"
+    EXCLUDE_PATTERNS: str = "*.pyc,__pycache__,node_modules,.git,*.min.js"
+    
+    # RAG - Performance Configuration
+    PROCESSING_WORKERS: int = 4
+    CACHE_EMBEDDINGS: bool = True
+    CACHE_TTL: int = 3600
+    
+    # RAG - Quality Configuration
+    MIN_RELEVANCE_SCORE: float = 0.7
+    MAX_CHUNKS_PER_QUERY: int = 10
     
     class Config:
         env_file = ".env"

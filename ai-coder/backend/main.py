@@ -16,6 +16,11 @@ from fastapi.responses import FileResponse
 from fastapi.responses import JSONResponse
 from datetime import datetime
 import json
+from pathlib import Path  # FIX: Added for proper path handling
+
+# FIX: Define base directory and static path
+BASE_DIR = Path(__file__).resolve().parent
+STATIC_DIR = BASE_DIR / "static"
 
 # SECURITY FIX - Phase 2C: Custom JSON encoder for datetime objects
 class DateTimeEncoder(json.JSONEncoder):
@@ -66,14 +71,26 @@ app = FastAPI(
     lifespan=lifespan
 )  # ← Close FastAPI() here
 
-# Mount static files (AFTER creating app)
-app.mount("/static", StaticFiles(directory="static"), name="static")
+# FIX: Mount static files only if directory exists (prevents test failures)
+if STATIC_DIR.exists():
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+    logger.info(f"✅ Static files mounted from {STATIC_DIR}")
+else:
+    logger.warning(f"⚠️  Static directory not found at {STATIC_DIR} - UI will not be available")
 
 # Serve index.html at root for web interface
 @app.get("/ui")
 async def serve_ui():
     """Serve the web interface"""
-    return FileResponse("static/index.html")
+    # FIX: Check if static files exist before serving
+    index_path = STATIC_DIR / "index.html"
+    if index_path.exists():
+        return FileResponse(str(index_path))
+    else:
+        return JSONResponse(
+            status_code=503,
+            content={"error": "UI not available - static files not found"}
+        )
 
 # Add middleware
 app.add_middleware(APIVersionMiddleware)  # VERSIONING: Add version middleware first
