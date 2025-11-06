@@ -12,3 +12,22 @@ qdrant-client==1.7.0
 neo4j==5.15.0
 openai==1.6.1
 tiktoken==0.5.2
+# ============================================================================
+# NEW EMBEDDINGS DEPENDENCIES
+# ============================================================================
+
+# HTTP Client (already have requests, just ensure aiohttp is added)
+aiohttp==3.9.1
+
+# Local Embeddings (Fallback)
+sentence-transformers==2.2.2
+torch==2.2.0
+transformers==4.35.0
+
+# Google Gemini (Fallback)
+google-generativeai==0.3.2
+
+# Caching & Compression
+msgpack==1.0.7
+orjson==3.9.10
+

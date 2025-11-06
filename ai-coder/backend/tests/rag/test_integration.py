@@ -30,7 +30,7 @@ class TestRAGIntegration:
             
             mock_openai_instance = MagicMock()
             mock_response = Mock()
-            mock_response.data = [Mock(embedding=[0.1] * 1536)]
+            mock_response.data = [Mock(embedding=[0.1] * 768)]
             mock_openai_instance.embeddings.create.return_value = mock_response
             mock_openai.return_value = mock_openai_instance
             

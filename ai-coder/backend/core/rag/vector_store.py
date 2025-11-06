@@ -55,7 +55,7 @@ class VectorStore:
     
     def _create_collections(self):
         """Create collections if they don't exist"""
-        embedding_dim = getattr(self.settings, 'EMBEDDING_DIMENSION', 1536)  # FIX: Uppercase
+        embedding_dim = getattr(self.settings, 'EMBEDDING_DIMENSION', 768)  # FIX: Uppercase
         
         for collection_name in self.collections.values():
             try:

@@ -12,6 +12,14 @@ ENV/
 dist/
 build/
 
+# Ignore all cache files
+embeddings_cache/
+*.msgpack
+*.json
+
+# Keep directory structure
+
+
 # Node
 node_modules/
 npm-debug.log*
