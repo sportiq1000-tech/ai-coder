@@ -24,10 +24,13 @@ class GraphStore:
     def _initialize_driver(self):
         """Initialize Neo4j driver with authentication"""
         try:
-            neo4j_uri = getattr(self.settings, 'neo4j_uri', None)
-            neo4j_user = getattr(self.settings, 'neo4j_user', 'neo4j')
-            neo4j_password = getattr(self.settings, 'neo4j_password', None)
-            neo4j_database = getattr(self.settings, 'neo4j_database', 'neo4j')
+            # FIX: Use UPPERCASE attribute names to match Settings class
+            neo4j_uri = getattr(self.settings, 'NEO4J_URI', None)
+            neo4j_user = getattr(self.settings, 'NEO4J_USER', 'neo4j')
+            neo4j_password = getattr(self.settings, 'NEO4J_PASSWORD', None)
+            neo4j_database = getattr(self.settings, 'NEO4J_DATABASE', 'neo4j')
+            
+            logger.info(f"Attempting to connect to Neo4j at: {neo4j_uri}")
             
             if not neo4j_uri or not neo4j_password:
                 logger.warning("Neo4j not configured, graph features will be unavailable")
@@ -43,7 +46,7 @@ class GraphStore:
             # Test connection
             with self.driver.session(database=neo4j_database) as session:
                 session.run("RETURN 1")
-            logger.info("Neo4j driver initialized successfully")
+            logger.info("✅ Neo4j driver initialized successfully")
         except Exception as e:
             logger.error(f"Failed to initialize Neo4j driver: {e}")
             raise
@@ -53,7 +56,8 @@ class GraphStore:
         if not self.driver:
             return
             
-        neo4j_database = getattr(self.settings, 'neo4j_database', 'neo4j')
+        # FIX: Use UPPERCASE attribute name
+        neo4j_database = getattr(self.settings, 'NEO4J_DATABASE', 'neo4j')
         
         constraints = [
             "CREATE CONSTRAINT file_path_unique IF NOT EXISTS FOR (f:File) REQUIRE f.path IS UNIQUE",
@@ -100,7 +104,8 @@ class GraphStore:
             logger.warning("Neo4j not available, skipping graph storage")
             return
             
-        neo4j_database = getattr(self.settings, 'neo4j_database', 'neo4j')
+        # FIX: Use UPPERCASE attribute name
+        neo4j_database = getattr(self.settings, 'NEO4J_DATABASE', 'neo4j')
         
         with self.driver.session(database=neo4j_database) as session:
             # Store nodes
@@ -243,7 +248,8 @@ class GraphStore:
             logger.warning("Neo4j not available")
             return []
             
-        neo4j_database = getattr(self.settings, 'neo4j_database', 'neo4j')
+        # FIX: Use UPPERCASE attribute name
+        neo4j_database = getattr(self.settings, 'NEO4J_DATABASE', 'neo4j')
         
         query = """
         MATCH path = (start)-[:CALLS|IMPORTS|EXTENDS*1..$depth]->(end)
@@ -288,7 +294,8 @@ class GraphStore:
             logger.warning("Neo4j not available")
             return {}
             
-        neo4j_database = getattr(self.settings, 'neo4j_database', 'neo4j')
+        # FIX: Use UPPERCASE attribute name
+        neo4j_database = getattr(self.settings, 'NEO4J_DATABASE', 'neo4j')
         
         queries = {
             "direct_dependencies": """
@@ -328,7 +335,8 @@ class GraphStore:
             return False
             
         try:
-            neo4j_database = getattr(self.settings, 'neo4j_database', 'neo4j')
+            # FIX: Use UPPERCASE attribute name
+            neo4j_database = getattr(self.settings, 'NEO4J_DATABASE', 'neo4j')
             with self.driver.session(database=neo4j_database) as session:
                 session.run("RETURN 1")
             return True

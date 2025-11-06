@@ -31,16 +31,18 @@ class VectorStore:
     def _initialize_client(self):
         """Initialize Qdrant client with authentication"""
         try:
-            qdrant_url = getattr(self.settings, 'qdrant_url', None)
-            qdrant_api_key = getattr(self.settings, 'qdrant_api_key', None)
+            qdrant_url = getattr(self.settings, 'QDRANT_URL', None)  # FIX: Use uppercase
+            qdrant_api_key = getattr(self.settings, 'QDRANT_API_KEY', None)
             
-            if not qdrant_url:
+            logger.info(f"Attempting to connect to Qdrant at: {qdrant_url}")
+            
+            if not qdrant_url or qdrant_url == "":
                 logger.warning("QDRANT_URL not configured, using in-memory storage")
                 self.client = QdrantClient(":memory:")
             else:
                 self.client = QdrantClient(
                     url=qdrant_url,
-                    api_key=qdrant_api_key,
+                    api_key=qdrant_api_key if qdrant_api_key else None,
                     timeout=30
                 )
             
@@ -53,11 +55,15 @@ class VectorStore:
     
     def _create_collections(self):
         """Create collections if they don't exist"""
-        embedding_dim = getattr(self.settings, 'embedding_dimension', 1536)
+        embedding_dim = getattr(self.settings, 'EMBEDDING_DIMENSION', 1536)  # FIX: Uppercase
         
         for collection_name in self.collections.values():
             try:
-                if not self.client.collection_exists(collection_name):
+                # FIX: Check if collection exists using get_collections()
+                existing_collections = self.client.get_collections()
+                collection_names = [c.name for c in existing_collections.collections]
+                
+                if collection_name not in collection_names:
                     self.client.create_collection(
                         collection_name=collection_name,
                         vectors_config=VectorParams(
@@ -66,17 +72,23 @@ class VectorStore:
                         )
                     )
                     # Create payload indexes
-                    self.client.create_payload_index(
-                        collection_name=collection_name,
-                        field_name="language",
-                        field_schema="keyword"
-                    )
-                    self.client.create_payload_index(
-                        collection_name=collection_name,
-                        field_name="file_path",
-                        field_schema="text"
-                    )
-                    logger.info(f"Created collection: {collection_name}")
+                    try:
+                        self.client.create_payload_index(
+                            collection_name=collection_name,
+                            field_name="language",
+                            field_schema="keyword"
+                        )
+                        self.client.create_payload_index(
+                            collection_name=collection_name,
+                            field_name="file_path",
+                            field_schema="text"
+                        )
+                    except Exception as idx_err:
+                        logger.warning(f"Failed to create indexes for {collection_name}: {idx_err}")
+                    
+                    logger.info(f"✅ Created collection: {collection_name}")
+                else:
+                    logger.info(f"Collection {collection_name} already exists")
             except Exception as e:
                 logger.error(f"Failed to create collection {collection_name}: {e}")
     
