@@ -12,15 +12,23 @@ class TestJinaEmbedder:
     
     @pytest.fixture
     def jina_embedder(self):
-        """Create Jina embedder instance"""
+        """
+        Create a Jina embedder instance for each test.
+        FIX: We must re-initialize for each test to reset state like tokens_used.
+        """
         with patch('core.rag.embedders.jina_embedder.CacheManager'):
-            return JinaEmbedder()
+            embedder = JinaEmbedder()
+            # Reset stats for a clean test run
+            embedder.reset_stats()
+            # Manually reset token usage for tests, as it's loaded from a file
+            embedder.tokens_used = 0
+            return embedder
     
     def test_initialization(self, jina_embedder):
         """Test Jina embedder initialization"""
         assert jina_embedder.model_name == "jina-embeddings-v2-base-en"
         assert jina_embedder.dimension == 768
-        assert jina_embedder.requires_api_key == False
+        assert jina_embedder.requires_api_key == True
         assert jina_embedder.token_limit == 10_000_000
     
     def test_estimate_tokens(self, jina_embedder):

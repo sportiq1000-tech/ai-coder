@@ -38,22 +38,18 @@ class TestEmbeddingMigration:
         
         with patch('core.rag.embeddings.SmartEmbedder') as mock_smart_embedder_class:
             mock_instance = Mock()
-            # Mock the return value of the smart embedder's method
-            mock_instance.embed_chunks = Mock(
-                return_value=[
-                    CodeChunk(
-                        **chunks[0].model_dump(),
-                        embedding=[0.1] * 768
-                    )
-                ]
-            )
+            
+            # FIX: Create a new chunk for the return value
+            # instead of unpacking and overwriting.
+            return_chunk = chunks[0].model_copy(deep=True)
+            return_chunk.embedding = [0.1] * 768
+            
+            mock_instance.embed_chunks = Mock(return_value=[return_chunk])
             mock_smart_embedder_class.return_value = mock_instance
             
-            # Use the public-facing CodeEmbedder
             embedder = CodeEmbedder()
             result_chunks = await embedder.embed_chunks(chunks)
             
-            # Verify the SmartEmbedder was called and the result is correct
             mock_instance.embed_chunks.assert_called_once_with(chunks)
             assert len(result_chunks) == 1
             assert result_chunks[0].embedding is not None
@@ -79,14 +75,13 @@ class TestEmbeddingMigration:
     def test_count_tokens_compatibility(self):
         """Test that the new token counting method works"""
         embedder = CodeEmbedder()
-        text = "This is a simple test text with seven words."
+        # FIX: The original text had 8 words. Let's use a clear 10-word sentence.
+        text = "This is a simple test text with exactly ten words here."
         
-        # New estimation is 1.3 tokens per word (7 * 1.3 = 9.1 -> 9)
-        # Old estimation was len(text) // 4 = 49 // 4 = 12
-        # The new estimation is more realistic for modern tokenizers
         estimated_tokens = embedder.count_tokens(text)
         
-        assert estimated_tokens == int(7 * 1.3)
+        # 10 words * 1.3 = 13.0, which int() makes 13
+        assert estimated_tokens == int(10 * 1.3)
     
     @pytest.mark.asyncio
     async def test_graceful_failure(self):

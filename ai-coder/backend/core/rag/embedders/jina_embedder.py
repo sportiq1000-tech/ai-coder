@@ -1,6 +1,6 @@
 """
 Jina AI Embedder
-Primary embedder with 10M free tokens, no API key required
+Primary embedder with 10M free tokens. NOW REQUIRES AN API KEY.
 """
 
 import requests
@@ -16,11 +16,10 @@ from .cache_manager import CacheManager
 
 class JinaEmbedder(BaseEmbedder):
     """
-    Jina AI embedding implementation
+    Jina AI embedding implementation.
     
     Features:
-    - 10,000,000 free tokens
-    - No API key required
+    - 10,000,000 free tokens (with API key)
     - No rate limiting
     - 768 dimensions
     - Batch processing (100 texts)
@@ -32,7 +31,9 @@ class JinaEmbedder(BaseEmbedder):
         """Initialize Jina embedder"""
         settings = get_settings()
         
+        # FIX: Add API key handling
         model = getattr(settings, 'JINA_MODEL', 'jina-embeddings-v2-base-en')
+        api_key = getattr(settings, 'JINA_API_KEY', None)
         dimension = 768  # Jina v2 base is 768-dim
         batch_size = getattr(settings, 'JINA_BATCH_SIZE', 100)
         
@@ -40,8 +41,10 @@ class JinaEmbedder(BaseEmbedder):
             model_name=model,
             dimension=dimension,
             batch_size=batch_size,
-            requires_api_key=False
+            requires_api_key=True  # FIX: Changed to True
         )
+        
+        self.api_key = api_key
         
         # Configuration
         self.cache_dir = getattr(settings, 'JINA_CACHE_DIR', 'data/embeddings_cache/jina')
@@ -64,10 +67,17 @@ class JinaEmbedder(BaseEmbedder):
         self.session = requests.Session()
         self.session.headers.update({
             "Content-Type": "application/json",
-            "Accept": "application/json"
+            "Accept": "application/json",
         })
         
-        logger.info(f"JinaEmbedder initialized: {model} ({dimension}D)")
+        # FIX: Add Authorization header if API key exists
+        if self.api_key:
+            self.session.headers.update({
+                "Authorization": f"Bearer {self.api_key}"
+            })
+            logger.info(f"JinaEmbedder initialized: {model} ({dimension}D)")
+        else:
+            logger.warning(f"JinaEmbedder initialized without API key. It will not work.")
     
     def _load_token_usage(self):
         """Load token usage from file"""
@@ -91,7 +101,7 @@ class JinaEmbedder(BaseEmbedder):
                     "tokens_used": self.tokens_used,
                     "last_updated": datetime.now().isoformat(),
                     "limit": self.token_limit,
-                    "percentage_used": (self.tokens_used / self.token_limit) * 100
+                    "percentage_used": (self.tokens_used / self.token_limit) * 100 if self.token_limit > 0 else 0
                 }, f, indent=2)
         except Exception as e:
             logger.error(f"Failed to save token usage: {e}")
@@ -119,14 +129,15 @@ class JinaEmbedder(BaseEmbedder):
             return False
         
         # Warning at threshold
-        usage_after = self.tokens_used + estimated_tokens
-        percentage = (usage_after / self.token_limit)
-        
-        if percentage > self.token_warning_threshold:
-            logger.warning(
-                f"Token usage warning: {usage_after:,} / {self.token_limit:,} "
-                f"({percentage*100:.1f}%)"
-            )
+        if self.token_limit > 0:
+            usage_after = self.tokens_used + estimated_tokens
+            percentage = (usage_after / self.token_limit)
+            
+            if percentage > self.token_warning_threshold:
+                logger.warning(
+                    f"Token usage warning: {usage_after:,} / {self.token_limit:,} "
+                    f"({percentage*100:.1f}%)"
+                )
         
         return True
     
@@ -142,6 +153,13 @@ class JinaEmbedder(BaseEmbedder):
         """
         if not texts:
             return []
+            
+        # FIX: Check for API key before proceeding
+        if not self.api_key:
+            logger.error("Jina API key not configured, cannot generate embeddings.")
+            self.stats.total_errors += 1
+            self.stats.last_error = "API key not configured"
+            return [None] * len(texts)
         
         start_time = time.time()
         self.stats.total_requests += 1
@@ -161,6 +179,7 @@ class JinaEmbedder(BaseEmbedder):
         
         # If all cached, return
         if not uncached_texts:
+            # FIX: Return the cached results directly, don't proceed.
             return cached_embeddings
         
         # Check token limit
@@ -202,20 +221,22 @@ class JinaEmbedder(BaseEmbedder):
             self.cache.set_batch(uncached_texts, self.model_name, new_embeddings)
             
             # Merge cached and new embeddings
-            result = []
+            result = list(cached_embeddings) # Create a mutable copy
             new_idx = 0
-            for i, cached_emb in enumerate(cached_embeddings):
-                if cached_emb is not None:
-                    result.append(cached_emb)
-                else:
-                    result.append(new_embeddings[new_idx])
+            # FIX: Use the original uncached_indices to place new embeddings correctly
+            for original_idx in uncached_indices:
+                if new_idx < len(new_embeddings):
+                    result[original_idx] = new_embeddings[new_idx]
                     new_idx += 1
+                else:
+                    # This case should ideally not happen if the API is consistent
+                    result[original_idx] = None
             
             # Update stats
             elapsed_ms = (time.time() - start_time) * 1000
             self.stats.average_latency_ms = (
                 (self.stats.average_latency_ms * (self.stats.total_requests - 1) + elapsed_ms) 
-                / self.stats.total_requests
+                / self.stats.total_requests if self.stats.total_requests > 0 else elapsed_ms
             )
             self.stats.last_request_time = datetime.now()
             
@@ -225,7 +246,7 @@ class JinaEmbedder(BaseEmbedder):
             logger.error(f"Jina API request failed: {e}")
             self.stats.total_errors += 1
             self.stats.last_error = str(e)
-            return [None] * len(texts)
+            return [None] * len(texts) # Return None for all original texts on failure
         except Exception as e:
             logger.error(f"Unexpected error in Jina embedder: {e}")
             self.stats.total_errors += 1
@@ -239,6 +260,10 @@ class JinaEmbedder(BaseEmbedder):
         Returns:
             True if healthy
         """
+        # FIX: Check for API key first
+        if not self.api_key:
+            return False
+            
         try:
             # Test with a simple embedding
             response = self.session.post(
@@ -268,7 +293,7 @@ class JinaEmbedder(BaseEmbedder):
             "tokens_used": self.tokens_used,
             "token_limit": self.token_limit,
             "tokens_remaining": self.token_limit - self.tokens_used,
-            "percentage_used": (self.tokens_used / self.token_limit) * 100,
+            "percentage_used": (self.tokens_used / self.token_limit) * 100 if self.token_limit > 0 else 0,
             "warning_threshold": self.token_warning_threshold * 100
         }
     

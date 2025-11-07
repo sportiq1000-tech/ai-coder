@@ -4,8 +4,9 @@ Performance tests for the new embedding strategy
 
 import pytest
 import time
+import requests
 from core.rag.embedders.jina_embedder import JinaEmbedder
-from unittest.mock import patch, Mock
+from unittest.mock import patch, Mock, MagicMock
 
 
 @pytest.mark.slow
@@ -15,28 +16,36 @@ class TestEmbeddingPerformance:
     @pytest.fixture
     def jina_embedder(self):
         """Create a Jina embedder with mocked API for performance testing"""
-        with patch('core.rag.embedders.jina_embedder.CacheManager'):
+        with patch('core.rag.embedders.jina_embedder.CacheManager') as mock_cache:
             embedder = JinaEmbedder()
             
-            # Mock the session post method to return a valid response quickly
-            mock_response = Mock()
-            mock_response.status_code = 200
+            mock_session = MagicMock(spec=requests.Session)
             
-            def mock_json():
-                # Simulate a dynamic response based on input size
-                return {
-                    "data": [{"embedding": [0.1] * 768} for _ in range(embedder.session.post.call_args.json['input'].__len__())],
-                    "usage": {"total_tokens": 100}
+            def mock_post_side_effect(*args, **kwargs):
+                # FIX: Correctly access the input texts from the call arguments
+                input_texts = kwargs.get('json', {}).get('input', [])
+                
+                mock_response = Mock()
+                mock_response.status_code = 200
+                mock_response.json.return_value = {
+                    "data": [{"embedding": [0.1] * 768} for _ in input_texts],
+                    "usage": {"total_tokens": len(input_texts) * 2} # Simulate token usage
                 }
+                mock_response.raise_for_status = Mock()
+                return mock_response
+                
+            mock_session.post.side_effect = mock_post_side_effect
+            embedder.session = mock_session
             
-            mock_response.json = mock_json
-            mock_response.raise_for_status = Mock()
-            embedder.session.post = Mock(return_value=mock_response)
+            # FIX: Make the cache mock dynamic based on input size
+            def mock_get_batch(texts, model):
+                return [None] * len(texts)
+                
+            mock_cache.return_value.get_batch = mock_get_batch
+            mock_cache.return_value.set_batch = Mock()
             
-            # Mock cache to simulate all misses
-            embedder.cache.get_batch = Mock(return_value=[None] * 1000)
-            embedder.cache.set_batch = Mock()
-            
+            # Reset state for each test
+            embedder.tokens_used = 0
             return embedder
     
     @pytest.mark.asyncio
@@ -77,8 +86,8 @@ class TestEmbeddingPerformance:
         await jina_embedder.embed_batch(texts)
         duration_miss = time.time() - start_miss
         
-        # Mock cache to return hits
-        jina_embedder.cache.get_batch = Mock(return_value=[[0.1] * 768] * 100)
+        # Mock cache to return hits for the second call
+        jina_embedder.cache.get_batch.return_value = [[0.1] * 768] * 100
         
         # Second call (cache hit)
         start_hit = time.time()
@@ -88,6 +97,5 @@ class TestEmbeddingPerformance:
         print(f"\nCache miss time: {duration_miss:.4f}s")
         print(f"Cache hit time: {duration_hit:.4f}s")
         
-        # Cache hit should be orders of magnitude faster
         assert duration_hit < duration_miss / 10
         assert duration_hit < 0.05  # Should be extremely fast

@@ -132,7 +132,8 @@ class Settings(BaseSettings):
     EMBEDDING_DIMENSION: int = Field(default=768, env="EMBEDDING_DIMENSION")  # Changed from 1536
     EMBEDDING_BATCH_SIZE: int = Field(default=100, env="EMBEDDING_BATCH_SIZE")
     
-    # Jina AI Configuration (Primary - No API Key Required)
+    # Jina AI Configuration (Primary)
+    JINA_API_KEY: Optional[str] = Field(default=None, env="JINA_API_KEY") # NEW
     JINA_MODEL: str = Field(default="jina-embeddings-v2-base-en", env="JINA_MODEL")
     JINA_CACHE_DIR: str = Field(default="data/embeddings_cache/jina", env="JINA_CACHE_DIR")
     JINA_COMPRESSION: bool = Field(default=True, env="JINA_COMPRESSION")

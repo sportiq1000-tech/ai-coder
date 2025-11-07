@@ -2,7 +2,7 @@
 Vector Store Implementation using Qdrant
 Handles storage and retrieval of code embeddings
 """
-
+import uuid
 from typing import List, Dict, Any, Optional
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue
@@ -105,20 +105,29 @@ class VectorStore:
             collection_type: Type of collection to store in
             
         Returns:
-            List of point IDs
+            List of point IDs (as strings)
         """
         collection_name = self.collections.get(collection_type)
         if not collection_name:
             raise ValueError(f"Unknown collection type: {collection_type}")
         
         points = []
-        for i, chunk in enumerate(chunks):
+        point_ids = []
+        for chunk in chunks:
             if not chunk.embedding:
                 logger.warning(f"Chunk {chunk.id} has no embedding, skipping")
                 continue
-                
+        
+            # FIX: Generate a deterministic UUID from the human-readable ID
+            # This ensures the ID is always the same for the same chunk
+            human_readable_id = chunk.id or f"{chunk.file_path}:{chunk.start_line}-{chunk.end_line}"
+            point_uuid = str(uuid.uuid5(uuid.NAMESPACE_DNS, human_readable_id))
+        
+            # Also store the original human-readable ID in the payload
+            chunk.metadata['original_id'] = human_readable_id
+            
             point = PointStruct(
-                id=chunk.id or f"{chunk.file_path}_{chunk.start_line}_{i}",
+                id=point_uuid,  # Use the generated UUID
                 vector=chunk.embedding,
                 payload={
                     "content": chunk.content,
@@ -131,18 +140,19 @@ class VectorStore:
                 }
             )
             points.append(point)
+            point_ids.append(point_uuid)
         
         if not points:
             logger.warning("No valid points to store")
             return []
         
         try:
-            operation_info = self.client.upsert(
+            self.client.upsert(
                 collection_name=collection_name,
                 points=points
             )
             logger.info(f"Stored {len(points)} chunks in {collection_name}")
-            return [str(point.id) for point in points]
+            return point_ids
         except Exception as e:
             logger.error(f"Failed to store chunks: {e}")
             raise

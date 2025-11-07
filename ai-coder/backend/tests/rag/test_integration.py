@@ -14,11 +14,22 @@ class TestRAGIntegration:
     @pytest.mark.asyncio
     async def test_end_to_end_processing(self):
         """Test complete pipeline from file to storage"""
+        # FIX: Remove the patch for 'core.rag.embeddings.openai.OpenAI'
+        # and patch the new SmartEmbedder instead.
         with patch('core.rag.connections.VectorStore') as mock_vector_store, \
              patch('core.rag.connections.GraphStore') as mock_graph_store, \
-             patch('core.rag.embeddings.openai.OpenAI') as mock_openai:
+             patch('core.rag.embedders.smart_embedder.SmartEmbedder') as mock_smart_embedder:
+
+            # Setup mocks for embedder
+            mock_embedder_instance = Mock()
+            async def mock_embed(chunks):
+                for chunk in chunks:
+                    chunk.embedding = [0.1] * 768
+                return chunks
+            mock_smart_embedder.return_value.embed_chunks = mock_embed
             
-            # Setup mocks
+            # ... (rest of the mocks are fine)
+            
             mock_vs_instance = MagicMock()
             mock_vs_instance.health_check.return_value = True
             mock_vs_instance.store_chunks = AsyncMock(return_value=["chunk_1"])
@@ -27,12 +38,6 @@ class TestRAGIntegration:
             mock_gs_instance = MagicMock()
             mock_gs_instance.health_check.return_value = True
             mock_graph_store.return_value = mock_gs_instance
-            
-            mock_openai_instance = MagicMock()
-            mock_response = Mock()
-            mock_response.data = [Mock(embedding=[0.1] * 768)]
-            mock_openai_instance.embeddings.create.return_value = mock_response
-            mock_openai.return_value = mock_openai_instance
             
             # FIX: Create test data with sufficient length (> 50 chars)
             test_code = '''
@@ -53,11 +58,11 @@ class TestClass:
             chunks = await chunker.chunk_file("test.py", test_code, "python")
             assert len(chunks) > 0, "Should create at least one chunk"
             
-            # Generate embeddings if OpenAI is configured
-            embedder = CodeEmbedder()
-            if embedder.client:
-                chunks_with_embeddings = await embedder.embed_chunks(chunks)
-                assert all(chunk.embedding is not None for chunk in chunks_with_embeddings)
+            # Generate embeddings
+            embedder = CodeEmbedder() # This will use the mocked SmartEmbedder
+            chunks_with_embeddings = await embedder.embed_chunks(chunks)
+            
+            assert all(chunk.embedding is not None for chunk in chunks_with_embeddings)
     
     @pytest.mark.asyncio
     async def test_connection_manager_initialization(self):

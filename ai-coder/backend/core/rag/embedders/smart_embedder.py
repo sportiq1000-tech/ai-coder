@@ -48,65 +48,54 @@ class SmartEmbedder:
     
     def _initialize_embedders(self):
         """Initialize all available embedders"""
-        # Primary: Jina AI (always try first)
+        all_embedders = []
+        
+        # Try to initialize all potential embedders
         try:
-            self.primary = JinaEmbedder()
-            if self.primary.health_check():
-                logger.info("✅ Primary embedder: Jina AI")
-            else:
-                logger.warning("⚠️  Jina AI health check failed")
-                self.fallbacks.append(self.primary)
-                self.primary = None
+            all_embedders.append(JinaEmbedder())
         except Exception as e:
             logger.error(f"Failed to initialize Jina embedder: {e}")
-            self.primary = None
-        
-        # Fallback 1: HuggingFace
+            
         try:
             hf_embedder = HuggingFaceEmbedder()
             if hf_embedder.api_key:
-                if hf_embedder.health_check():
-                    self.fallbacks.append(hf_embedder)
-                    logger.info("✅ Fallback 1: HuggingFace")
-                else:
-                    logger.warning("⚠️  HuggingFace health check failed")
+                all_embedders.append(hf_embedder)
             else:
                 logger.info("ℹ️  HuggingFace: No API key configured (skipped)")
         except Exception as e:
             logger.warning(f"Failed to initialize HuggingFace embedder: {e}")
-        
-        # Fallback 2: Gemini
+            
         try:
             gemini_embedder = GeminiEmbedder()
             if gemini_embedder.api_key:
-                if gemini_embedder.health_check():
-                    self.fallbacks.append(gemini_embedder)
-                    logger.info("✅ Fallback 2: Gemini")
-                else:
-                    logger.warning("⚠️  Gemini health check failed")
+                all_embedders.append(gemini_embedder)
             else:
                 logger.info("ℹ️  Gemini: No API key configured (skipped)")
         except Exception as e:
             logger.warning(f"Failed to initialize Gemini embedder: {e}")
-        
-        # Fallback 3: Local (always add as last resort)
+            
         try:
-            local_embedder = LocalEmbedder()
-            if local_embedder.health_check():
-                self.fallbacks.append(local_embedder)
-                logger.info("✅ Fallback 3: Local Sentence Transformers")
-            else:
-                logger.warning("⚠️  Local embedder not available")
+            all_embedders.append(LocalEmbedder())
         except Exception as e:
             logger.warning(f"Failed to initialize Local embedder: {e}")
-        
-        # Validate we have at least one embedder
-        if not self.primary and not self.fallbacks:
-            logger.error("❌ No embedders available! Please configure at least one.")
-        elif not self.primary and self.fallbacks:
-            # Promote first fallback to primary
-            self.primary = self.fallbacks.pop(0)
-            logger.warning(f"Promoted {self.primary.__class__.__name__} to primary")
+            
+        # FIX: Correctly assign primary and fallbacks based on health checks
+        healthy_embedders = []
+        for embedder in all_embedders:
+            if embedder.health_check():
+                healthy_embedders.append(embedder)
+                logger.info(f"✅ {embedder.__class__.__name__} is healthy and available.")
+            else:
+                logger.warning(f"⚠️  {embedder.__class__.__name__} health check failed.")
+
+        if healthy_embedders:
+            self.primary = healthy_embedders[0]
+            self.fallbacks = healthy_embedders[1:]
+            logger.info(f"Promoted {self.primary.__class__.__name__} to primary.")
+            if self.fallbacks:
+                logger.info(f"Available fallbacks: {[e.__class__.__name__ for e in self.fallbacks]}")
+        else:
+            logger.error("❌ No healthy embedders available! Please check your configuration and network.")
     
     async def embed_chunks(self, chunks: List[CodeChunk]) -> List[CodeChunk]:
         """

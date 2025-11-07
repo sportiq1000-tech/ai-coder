@@ -3,6 +3,7 @@ Tests for Vector Store implementation
 """
 
 import pytest
+import uuid
 from unittest.mock import Mock, patch, MagicMock
 from core.rag.vector_store import VectorStore
 from schemas.rag_schemas import CodeChunk, SearchResult
@@ -55,9 +56,13 @@ class TestVectorStore:
         
         result = await vector_store.store_chunks(sample_chunks)
         
+        # FIX: Check against the expected UUIDs, not the original string IDs.
+        expected_id_1 = str(uuid.uuid5(uuid.NAMESPACE_DNS, sample_chunks[0].id))
+        expected_id_2 = str(uuid.uuid5(uuid.NAMESPACE_DNS, sample_chunks[1].id))
+        
         assert len(result) == 2
-        assert "test_chunk_1" in result
-        assert "test_chunk_2" in result
+        assert expected_id_1 in result
+        assert expected_id_2 in result
         vector_store.client.upsert.assert_called_once()
     
     @pytest.mark.asyncio
