@@ -173,6 +173,9 @@ class CacheManager:
             self.metadata["total_entries"] += 1
             self.metadata["total_size_bytes"] = self._calculate_cache_size()
             
+            # FIX: Save the metadata after updating it.
+            self._save_metadata()
+            
             # Check if cleanup needed
             if self.metadata["total_size_bytes"] > self.max_size_bytes:
                 self._cleanup_by_size()

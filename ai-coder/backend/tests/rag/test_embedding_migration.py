@@ -3,7 +3,7 @@ Tests to ensure the new SmartEmbedder is compatible with the existing system
 """
 
 import pytest
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, patch, AsyncMock
 from core.rag.embeddings import CodeEmbedder  # The public-facing class
 from schemas.rag_schemas import CodeChunk
 
@@ -44,13 +44,14 @@ class TestEmbeddingMigration:
             return_chunk = chunks[0].model_copy(deep=True)
             return_chunk.embedding = [0.1] * 768
             
-            mock_instance.embed_chunks = Mock(return_value=[return_chunk])
+            # FIX: The mock needs to be an AsyncMock to be awaitable
+            mock_instance.embed_chunks = AsyncMock(return_value=[return_chunk])
             mock_smart_embedder_class.return_value = mock_instance
             
             embedder = CodeEmbedder()
             result_chunks = await embedder.embed_chunks(chunks)
             
-            mock_instance.embed_chunks.assert_called_once_with(chunks)
+            mock_instance.embed_chunks.assert_awaited_once_with(chunks)
             assert len(result_chunks) == 1
             assert result_chunks[0].embedding is not None
             assert len(result_chunks[0].embedding) == 768
@@ -74,14 +75,16 @@ class TestEmbeddingMigration:
     
     def test_count_tokens_compatibility(self):
         """Test that the new token counting method works"""
-        embedder = CodeEmbedder()
-        # FIX: The original text had 8 words. Let's use a clear 10-word sentence.
+        # This must be run outside of an async context if CodeEmbedder init is complex
+        with patch('core.rag.embedders.smart_embedder.SmartEmbedder'):
+            embedder = CodeEmbedder()
+
+        # FIX: The sentence "This is a simple test text with exactly ten words here." has 11 words.
         text = "This is a simple test text with exactly ten words here."
-        
+        # 11 words * 1.3 = 14.3, which int() truncates to 14.
         estimated_tokens = embedder.count_tokens(text)
         
-        # 10 words * 1.3 = 13.0, which int() makes 13
-        assert estimated_tokens == int(10 * 1.3)
+        assert estimated_tokens == int(11 * 1.3)
     
     @pytest.mark.asyncio
     async def test_graceful_failure(self):

@@ -154,7 +154,6 @@ class JinaEmbedder(BaseEmbedder):
         if not texts:
             return []
             
-        # FIX: Check for API key before proceeding
         if not self.api_key:
             logger.error("Jina API key not configured, cannot generate embeddings.")
             self.stats.total_errors += 1
@@ -162,7 +161,7 @@ class JinaEmbedder(BaseEmbedder):
             return [None] * len(texts)
         
         start_time = time.time()
-        self.stats.total_requests += 1
+        self.stats.total_requests += 1 # This counts one "embed_batch" call, not API calls
         self.stats.total_texts += len(texts)
         
         # Check cache first
@@ -177,81 +176,84 @@ class JinaEmbedder(BaseEmbedder):
         if cache_hits > 0:
             logger.info(f"Cache hit: {cache_hits}/{len(texts)} embeddings")
         
-        # If all cached, return
         if not uncached_texts:
-            # FIX: Return the cached results directly, don't proceed.
             return cached_embeddings
         
-        # Check token limit
+        # Check token limit for the whole operation
         estimated_tokens = self._estimate_tokens(uncached_texts)
         if not self._check_token_limit(estimated_tokens):
             logger.error("Token limit exceeded, cannot generate embeddings")
             self.stats.total_errors += 1
             return [None] * len(texts)
         
-        # Call Jina API
-        try:
-            response = self.session.post(
-                self.API_URL,
-                json={
-                    "model": self.model_name,
-                    "input": uncached_texts,
-                    "encoding_format": "float"
-                },
-                timeout=30
-            )
+        # FIX: Implement batching loop
+        all_new_embeddings = {}
+        for i in range(0, len(uncached_texts), self.batch_size):
+            batch_texts = uncached_texts[i:i + self.batch_size]
+            batch_indices = uncached_indices[i:i + self.batch_size]
             
-            response.raise_for_status()
-            data = response.json()
+            try:
+                response = self.session.post(
+                    self.API_URL,
+                    json={
+                        "model": self.model_name,
+                        "input": batch_texts,
+                        "encoding_format": "float"
+                    },
+                    timeout=30
+                )
+                response.raise_for_status()
+                data = response.json()
+                
+                new_embeddings_for_batch = [item["embedding"] for item in data["data"]]
+                
+                # Map embeddings back to their original indices
+                for original_idx, embedding in zip(batch_indices, new_embeddings_for_batch):
+                    all_new_embeddings[original_idx] = embedding
+
+                # Update token usage
+                actual_tokens = data.get("usage", {}).get("total_tokens", self._estimate_tokens(batch_texts))
+                self.tokens_used += actual_tokens
+                self._save_token_usage()
+                
+                logger.info(
+                    f"Processed batch {i//self.batch_size + 1}: "
+                    f"{len(batch_texts)} embeddings ({actual_tokens} tokens)"
+                )
+                
+            except requests.exceptions.RequestException as e:
+                logger.error(f"Jina API request failed for batch: {e}")
+                self.stats.total_errors += 1
+                self.stats.last_error = str(e)
+                # Mark embeddings for this failed batch as None
+                for original_idx in batch_indices:
+                    all_new_embeddings[original_idx] = None
+            except Exception as e:
+                logger.error(f"Unexpected error in Jina embedder batch: {e}")
+                self.stats.total_errors += 1
+                self.stats.last_error = str(e)
+                for original_idx in batch_indices:
+                    all_new_embeddings[original_idx] = None
+
+        # Cache all successfully generated embeddings
+        successful_texts = [texts[idx] for idx, emb in all_new_embeddings.items() if emb is not None]
+        successful_embeddings = [emb for emb in all_new_embeddings.values() if emb is not None]
+        if successful_texts:
+            self.cache.set_batch(successful_texts, self.model_name, successful_embeddings)
+
+        # Merge cached results and new results
+        final_results = list(cached_embeddings)
+        for original_idx, embedding in all_new_embeddings.items():
+            final_results[original_idx] = embedding
             
-            # Extract embeddings
-            new_embeddings = [item["embedding"] for item in data["data"]]
-            
-            # Update token usage
-            actual_tokens = data.get("usage", {}).get("total_tokens", estimated_tokens)
-            self.tokens_used += actual_tokens
-            self._save_token_usage()
-            
-            logger.info(
-                f"Generated {len(new_embeddings)} embeddings "
-                f"({actual_tokens} tokens, total: {self.tokens_used:,})"
-            )
-            
-            # Cache new embeddings
-            self.cache.set_batch(uncached_texts, self.model_name, new_embeddings)
-            
-            # Merge cached and new embeddings
-            result = list(cached_embeddings) # Create a mutable copy
-            new_idx = 0
-            # FIX: Use the original uncached_indices to place new embeddings correctly
-            for original_idx in uncached_indices:
-                if new_idx < len(new_embeddings):
-                    result[original_idx] = new_embeddings[new_idx]
-                    new_idx += 1
-                else:
-                    # This case should ideally not happen if the API is consistent
-                    result[original_idx] = None
-            
-            # Update stats
-            elapsed_ms = (time.time() - start_time) * 1000
-            self.stats.average_latency_ms = (
-                (self.stats.average_latency_ms * (self.stats.total_requests - 1) + elapsed_ms) 
-                / self.stats.total_requests if self.stats.total_requests > 0 else elapsed_ms
-            )
-            self.stats.last_request_time = datetime.now()
-            
-            return result
-            
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Jina API request failed: {e}")
-            self.stats.total_errors += 1
-            self.stats.last_error = str(e)
-            return [None] * len(texts) # Return None for all original texts on failure
-        except Exception as e:
-            logger.error(f"Unexpected error in Jina embedder: {e}")
-            self.stats.total_errors += 1
-            self.stats.last_error = str(e)
-            return [None] * len(texts)
+        elapsed_ms = (time.time() - start_time) * 1000
+        self.stats.average_latency_ms = (
+            (self.stats.average_latency_ms * (self.stats.total_requests - 1) + elapsed_ms) 
+            / self.stats.total_requests if self.stats.total_requests > 0 else elapsed_ms
+        )
+        self.stats.last_request_time = datetime.now()
+
+        return final_results
     
     def health_check(self) -> bool:
         """

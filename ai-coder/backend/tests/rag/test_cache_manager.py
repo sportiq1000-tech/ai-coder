@@ -16,9 +16,9 @@ class TestCacheManager:
         """Test cache manager initialization"""
         cache = CacheManager(cache_dir=str(temp_cache_dir))
         assert cache.cache_dir.exists()
-        # FIX: The metadata file is only created on the first write.
-        # The important thing is that the directory exists.
-        # Let's write something to trigger metadata creation.
+        
+        # FIX: The metadata file is only created on a write. Let's test that.
+        assert not cache.metadata_file.exists()
         cache.set("init_test", "model", [0.1])
         assert cache.metadata_file.exists()
 
