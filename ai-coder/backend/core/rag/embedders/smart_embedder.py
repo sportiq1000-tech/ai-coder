@@ -276,6 +276,27 @@ class SmartEmbedder:
         
         return stats
     
+    def get_healthy_embedder(self) -> Optional[BaseEmbedder]:
+        """
+        Get the first available healthy embedder from the current configuration.
+        
+        This is useful for re-checking health after initialization.
+        
+        Returns:
+            The first healthy embedder instance, or None if none are healthy.
+        """
+        # Check the primary embedder first
+        if self.primary and self.primary.health_check():
+            return self.primary
+
+        # Check the fallback embedders in order
+        for fallback in self.fallbacks:
+            if fallback.health_check():
+                return fallback
+            
+        # If no embedders are healthy, return None
+        return None
+    
     def health_check(self) -> Dict[str, bool]:
         """
         Check health of all embedders

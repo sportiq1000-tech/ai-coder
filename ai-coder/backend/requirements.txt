@@ -1,3 +1,4 @@
+# Core dependencies
 numpy<2.0.0
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
@@ -7,23 +8,28 @@ pydantic-settings==2.1.0
 httpx==0.25.2
 python-multipart==0.0.6
 redis==5.0.1
-python-dotenv==1.0.0
+
 # RAG Dependencies
 qdrant-client==1.7.0
 neo4j==5.15.0
-openai==1.6.1
-tiktoken==0.5.2
 # ============================================================================
-# NEW EMBEDDINGS DEPENDENCIES
+# EMBEDDINGS DEPENDENCIES (Updated for compatibility)
 # ============================================================================
 
-# HTTP Client (already have requests, just ensure aiohttp is added)
+# HTTP Client
 aiohttp==3.9.1
 
-# Local Embeddings (Fallback)
-sentence-transformers==2.2.2
-torch==2.2.0
-transformers==4.35.0
+# HuggingFace Hub & Transformers (Core)
+huggingface-hub==0.36.0
+transformers==4.57.1
+tokenizers==0.22.1
+
+# PyTorch (Updated to latest stable)
+torch==2.9.0
+torchvision==0.24.0
+
+# Sentence Transformers (Local Embeddings Fallback)
+sentence-transformers==5.1.2
 
 # Google Gemini (Fallback)
 google-generativeai==0.3.2
@@ -31,4 +37,3 @@ google-generativeai==0.3.2
 # Caching & Compression
 msgpack==1.0.7
 orjson==3.9.10
-

@@ -198,7 +198,7 @@ class JinaEmbedder(BaseEmbedder):
                     json={
                         "model": self.model_name,
                         "input": batch_texts,
-                        "encoding_format": "float"
+                        # encoding_format removed - not supported by Jina
                     },
                     timeout=30
                 )
@@ -273,7 +273,7 @@ class JinaEmbedder(BaseEmbedder):
                 json={
                     "model": self.model_name,
                     "input": ["test"],
-                    "encoding_format": "float"
+                    # encoding_format removed - not supported by Jina
                 },
                 timeout=10
             )

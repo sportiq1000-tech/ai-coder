@@ -48,9 +48,7 @@ class LocalEmbedder(BaseEmbedder):
         self.native_dimension = 384
         self.model = None
         
-        # Lazy load model (only when needed)
-        if SENTENCE_TRANSFORMERS_AVAILABLE:
-            self._load_model()
+        # DO NOT load model here - true lazy loading means we only load on first use
         
         # Cache
         cache_dir = getattr(settings, 'LOCAL_CACHE_DIR', 'data/embeddings_cache/local')
@@ -59,7 +57,7 @@ class LocalEmbedder(BaseEmbedder):
         logger.info(f"LocalEmbedder initialized: {model}")
     
     def _load_model(self):
-        """Lazy load the model"""
+        """Lazy load the model (only called from embed_batch)"""
         if self.model is None and SENTENCE_TRANSFORMERS_AVAILABLE:
             try:
                 logger.info(f"Loading local model: {self.model_name}")
@@ -86,7 +84,7 @@ class LocalEmbedder(BaseEmbedder):
             logger.error("sentence-transformers not available")
             return [None] * len(texts)
         
-        # Load model if not already loaded
+        # Load model if not already loaded (TRUE lazy loading)
         if self.model is None:
             self._load_model()
         
@@ -155,11 +153,10 @@ class LocalEmbedder(BaseEmbedder):
         return result
     
     def health_check(self) -> bool:
-        """Check if local model is loaded"""
-        if not SENTENCE_TRANSFORMERS_AVAILABLE:
-            return False
+        """
+        Lightweight health check.
         
-        if self.model is None:
-            self._load_model()
-        
-        return self.model is not None
+        Only checks if the sentence-transformers library is available.
+        Does NOT attempt to load the model - that happens lazily on first use.
+        """
+        return SENTENCE_TRANSFORMERS_AVAILABLE
