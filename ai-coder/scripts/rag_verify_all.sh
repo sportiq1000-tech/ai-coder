@@ -31,6 +31,39 @@ echo -e "${PURPLE}╚═══════════════════�
 echo ""
 
 cd /workspaces/ai-coder/ai-coder
+# ============================================================================
+# STEP 0: Load Environment Variables (ADD THIS SECTION)
+# ============================================================================
+
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "🔧 Loading Environment Configuration"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# Navigate to backend directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+BACKEND_DIR="$PROJECT_ROOT/backend"
+
+echo -e "${CYAN}ℹ️  Project root: $PROJECT_ROOT${NC}"
+echo -e "${CYAN}ℹ️  Backend directory: $BACKEND_DIR${NC}"
+
+# Check if .env file exists
+if [ -f "$BACKEND_DIR/.env" ]; then
+    echo -e "${GREEN}✅ Found .env file${NC}"
+    
+    # Load environment variables from .env file
+    echo -e "${CYAN}ℹ️  Loading environment variables...${NC}"
+    set -a  # Automatically export all variables
+    source "$BACKEND_DIR/.env"
+    set +a  # Stop auto-export
+    
+    echo -e "${GREEN}✅ Environment variables loaded${NC}"
+else
+    echo -e "${YELLOW}⚠️  .env file not found at $BACKEND_DIR/.env${NC}"
+    echo -e "${YELLOW}ℹ️  Will check for system environment variables instead${NC}"
+fi
+
 
 # Function to print section headers
 print_section() {
@@ -46,11 +79,71 @@ print_error() { echo -e "${RED}${CROSS} $1${NC}"; OVERALL_STATUS=1; }
 print_warning() { echo -e "${YELLOW}${WARN} $1${NC}"; }
 print_info() { echo -e "${CYAN}${INFO} $1${NC}"; }
 
+# ============================================================================
+# NEW FUNCTIONS ADDED
+# ============================================================================
+
+# Add environment variable check
+check_env_vars() {
+    print_info "Checking environment variables..."
+    
+    # Check if .env file exists
+    if [ ! -f "backend/.env" ]; then
+        print_warning "backend/.env file not found. Some checks might fail."
+    fi
+    
+    # Critical variables
+    if [ -z "$NEO4J_PASSWORD" ]; then
+        print_error "NEO4J_PASSWORD not set. This is required for Neo4j connection."
+        return 1
+    else
+        print_success "NEO4J_PASSWORD is set."
+    fi
+    
+    # Optional variables (warn only)
+    [ -z "$OPENAI_API_KEY" ] && print_warning "OPENAI_API_KEY not set (optional, for OpenAI embeddings)"
+    [ -z "$JINA_API_KEY" ] && print_warning "JINA_API_KEY not set (optional, for Jina AI embeddings)"
+    [ -z "$GEMINI_API_KEY" ] && print_warning "GEMINI_API_KEY not set (optional, for Gemini embeddings)"
+    
+    print_success "Required environment variables check complete."
+}
+
+# Add sample data verification
+check_sample_data() {
+    print_info "Verifying sample data in Qdrant..."
+    
+    # Check Qdrant for sample chunks
+    COLLECTIONS_JSON=$(curl -s http://localhost:6333/collections/code_chunks)
+    local chunk_count=$(echo "$COLLECTIONS_JSON" | python -c "import sys, json; data=json.load(sys.stdin); print(data.get('result', {}).get('points_count', 0))" 2>/dev/null || echo "0")
+    
+    if [ "$chunk_count" -gt 0 ]; then
+        print_success "Sample data loaded: $chunk_count chunks in 'code_chunks' collection"
+    else
+        print_warning "No sample data found in 'code_chunks' collection. Run 'python scripts/setup_rag_databases.py' to load data."
+    fi
+}
+
+# Add consistency check
+check_consistency() {
+    print_info "Checking cross-database consistency..."
+    print_warning "Consistency check is a placeholder. Logic needs to be implemented."
+    # Compare file counts between databases
+    # (Add your logic here)
+    
+    print_success "Placeholder consistency check complete."
+}
+
 # Track overall status
 OVERALL_STATUS=0
 
 # ============================================================================
-# 1. DOCKER CONTAINERS
+# 0️⃣  ENVIRONMENT VARIABLES
+# ============================================================================
+print_section "0️⃣  Environment Variables"
+check_env_vars
+
+# ============================================================================
+# 1️⃣  DOCKER CONTAINERS
 # ============================================================================
 print_section "1️⃣  Docker Containers Status"
 
@@ -86,7 +179,7 @@ echo ""
 docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep -E "NAMES|qdrant|neo4j"
 
 # ============================================================================
-# 2. QDRANT (VECTOR DATABASE)
+# 2️⃣  QDRANT (VECTOR DATABASE)
 # ============================================================================
 print_section "2️⃣  Qdrant Vector Database"
 
@@ -143,7 +236,7 @@ else
 fi
 
 # ============================================================================
-# 3. NEO4J (GRAPH DATABASE)
+# 3️⃣  NEO4J (GRAPH DATABASE)
 # ============================================================================
 print_section "3️⃣  Neo4j Graph Database"
 
@@ -193,7 +286,7 @@ else
 fi
 
 # ============================================================================
-# 4. PYTHON MODULES
+# 4️⃣  PYTHON MODULES
 # ============================================================================
 print_section "4️⃣  Python Module Tests"
 
@@ -245,7 +338,7 @@ fi
 cd ..
 
 # ============================================================================
-# 5. PYTEST TESTS
+# 5️⃣  PYTEST TESTS
 # ============================================================================
 print_section "5️⃣  RAG Unit Tests (pytest)"
 
@@ -267,9 +360,22 @@ fi
 cd ..
 
 # ============================================================================
-# 6. SUMMARY
+# 6️⃣  DATA VERIFICATION
 # ============================================================================
-print_section "📊 Final Summary"
+print_section "6️⃣  Data Verification"
+
+if [ "$QDRANT_RUNNING" = true ]; then
+    check_sample_data
+else
+    print_warning "Qdrant not running, skipping sample data check."
+fi
+
+check_consistency
+
+# ============================================================================
+# 7️⃣  SUMMARY
+# ============================================================================
+print_section "7️⃣  Final Summary"
 
 echo ""
 echo "Component Health:"
