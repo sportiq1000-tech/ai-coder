@@ -10,8 +10,7 @@ python-multipart==0.0.6
 redis==5.0.1
 
 # RAG Dependencies
-qdrant-client==1.7.0
-neo4j==5.15.0
+qdrant-client==1.15.1
 # ============================================================================
 # EMBEDDINGS DEPENDENCIES (Updated for compatibility)
 # ============================================================================
