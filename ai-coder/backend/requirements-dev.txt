@@ -10,4 +10,5 @@ respx==0.20.2
 
 # Test Utilities
 faker==20.0.3
-freezegun==1.2.2pytest-timeout==2.2.0
+freezegun==1.2.2
+pytest-timeout==2.2.0
