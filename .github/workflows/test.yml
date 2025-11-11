@@ -40,6 +40,10 @@ jobs:
           AZURE_AI_KEY: ${{ secrets.AZURE_AI_KEY }}
           JINA_API_KEY: ${{ secrets.JINA_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          QDRANT_URL: ${{ secrets.QDRANT_CLOUD_URL }}
+          QDRANT_API_KEY: ${{ secrets.QDRANT_CLOUD_API_KEY }}
+          NEO4J_URI: ${{ secrets.NEO4J_AURA_URI }}
+          NEO4J_PASSWORD: ${{ secrets.NEO4J_AURA_PASSWORD }}
           API_KEYS: "dev_key_12345:developer:100,admin_secret_xyz:admin:1000,ui_public_2024:ui_public:50"
         run: |
           pytest -v --cov=. --cov-report=xml --cov-report=term-missing --cov-fail-under=75
