@@ -38,6 +38,8 @@ jobs:
           CEREBRAS_API_KEY: ${{ secrets.CEREBRAS_API_KEY }}
           BYTEZ_API_KEY: ${{ secrets.BYTEZ_API_KEY }}
           AZURE_AI_KEY: ${{ secrets.AZURE_AI_KEY }}
+          JINA_API_KEY: ${{ secrets.JINA_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           API_KEYS: "dev_key_12345:developer:100,admin_secret_xyz:admin:1000,ui_public_2024:ui_public:50"
         run: |
           pytest -v --cov=. --cov-report=xml --cov-report=term-missing --cov-fail-under=75
