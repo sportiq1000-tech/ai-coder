@@ -10,7 +10,11 @@ python-multipart==0.0.6
 redis==5.0.1
 
 # RAG Dependencies
-qdrant-client==1.15.1
+qdrant-client==1.15.1  # Kept the upgraded version
+neo4j==5.15.0
+openai>=1.6.1,<2.0.0    # ADDED - Required by embedders
+tiktoken>=0.5.2,<0.6.0  # ADDED - Required for token counting
+
 # ============================================================================
 # EMBEDDINGS DEPENDENCIES (Updated for compatibility)
 # ============================================================================
