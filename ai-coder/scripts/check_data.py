@@ -37,22 +37,35 @@ async def main():
     all_ok = True
     
     try:
+        settings = get_settings()
         manager = await get_connection_manager()
         
         # --- Check Vector Store ---
         logger.info("\n📊 VECTOR STORE (Qdrant)")
         vector_store = await manager.get_vector_store()
+        
+        # ✅ FIX: Pass API key directly
         if vector_store and vector_store.health_check():
             logger.info("✅ Qdrant is healthy")
-            qdrant = QdrantClient(url=get_settings().QDRANT_URL)
-            count_result = qdrant.count(collection_name="code_chunks", exact=True)
-            points_count = count_result.count
             
-            logger.info(f"   Vector points in 'code_chunks': {points_count}")
-            if points_count > 0:
-                logger.info("   ✅ Embeddings are loaded.")
-            else:
-                logger.warning("   ⚠️  No embeddings found in 'code_chunks' collection.")
+            try:
+                # Initialize client with API key
+                qdrant = QdrantClient(
+                    url=settings.QDRANT_URL,
+                    api_key=settings.QDRANT_API_KEY
+                )
+                
+                count_result = qdrant.count(collection_name="code_chunks", exact=True)
+                points_count = count_result.count
+                
+                logger.info(f"   Vector points in 'code_chunks': {points_count}")
+                if points_count > 0:
+                    logger.info("   ✅ Embeddings are loaded.")
+                else:
+                    logger.warning("   ⚠️  No embeddings found in 'code_chunks' collection.")
+                    all_ok = False
+            except Exception as e:
+                logger.error(f"   ❌ Failed to query Qdrant: {e}")
                 all_ok = False
         else:
             logger.error("❌ Qdrant is not healthy.")
@@ -63,16 +76,19 @@ async def main():
         graph_store = await manager.get_graph_store()
         if graph_store and graph_store.health_check():
             logger.info("✅ Neo4j is healthy")
-            settings = get_settings()
-            with graph_store.driver.session(database=settings.NEO4J_DATABASE) as session:
-                result = session.run("MATCH (n) RETURN count(n) as count")
-                node_count = result.single()["count"]
-                logger.info(f"   Total nodes: {node_count}")
-                if node_count > 0:
-                    logger.info("   ✅ Graph structure is loaded.")
-                else:
-                    logger.warning("   ⚠️  No nodes found in graph database.")
-                    all_ok = False
+            try:
+                with graph_store.driver.session(database=settings.NEO4J_DATABASE) as session:
+                    result = session.run("MATCH (n) RETURN count(n) as count")
+                    node_count = result.single()["count"]
+                    logger.info(f"   Total nodes: {node_count}")
+                    if node_count > 0:
+                        logger.info("   ✅ Graph structure is loaded.")
+                    else:
+                        logger.warning("   ⚠️  No nodes found in graph database.")
+                        all_ok = False
+            except Exception as e:
+                logger.error(f"   ❌ Failed to query Neo4j: {e}")
+                all_ok = False
         else:
             logger.error("❌ Neo4j is not healthy.")
             all_ok = False
@@ -91,7 +107,7 @@ async def main():
         sys.exit(0)
     else:
         logger.error("❌ FAILED: RAG data verification failed.")
-        logger.warning("💡 Run 'python scripts/load_sample_with_embeddings.py' to load data.")
+        logger.warning("💡 Run 'python scripts/load_sample_with_embeddings.py' to load data if needed.")
         sys.exit(1)
 
 

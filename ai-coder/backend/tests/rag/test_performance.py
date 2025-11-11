@@ -1,11 +1,10 @@
 """
 Performance tests for the new embedding strategy
 """
-
+from unittest.mock import patch, Mock, MagicMock
 import pytest
 import time
 import requests
-from unittest.mock import patch, Mock, MagicMock
 from core.rag.embedders.jina_embedder import JinaEmbedder
 
 @pytest.mark.slow

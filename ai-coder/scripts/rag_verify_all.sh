@@ -364,13 +364,22 @@ cd ..
 # ============================================================================
 print_section "6️⃣  Data Verification"
 
-if [ "$QDRANT_RUNNING" = true ]; then
-    check_sample_data
+# This section has been replaced to use Python scripts for verification.
+if python scripts/check_data.py; then
+    print_success "Data verification passed."
 else
-    print_warning "Qdrant not running, skipping sample data check."
+    print_warning "Data verification failed. Attempting to load sample data..."
+    if python scripts/load_sample_with_embeddings.py; then
+        print_success "Sample data loaded successfully. Re-verifying..."
+        if python scripts/check_data.py; then
+            print_success "Data verification passed after loading."
+        else
+            print_error "Data verification still failed after loading sample data."
+        fi
+    else
+        print_error "Failed to load sample data. Check API keys and logs."
+    fi
 fi
-
-check_consistency
 
 # ============================================================================
 # 7️⃣  SUMMARY

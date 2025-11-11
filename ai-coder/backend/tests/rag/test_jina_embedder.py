@@ -1,9 +1,8 @@
 """
 Tests for Jina AI Embedder
 """
-
-import pytest
 from unittest.mock import Mock, patch, MagicMock
+import pytest
 from core.rag.embedders.jina_embedder import JinaEmbedder
 
 
